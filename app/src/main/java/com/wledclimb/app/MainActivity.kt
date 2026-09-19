@@ -18,28 +18,72 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wledclimb.app.settings.WledSettings
+import com.wledclimb.app.wled.SetupViewModel
 import com.wledclimb.app.wled.WallUiState
 import com.wledclimb.app.wled.WallViewModel
+import com.wledclimb.app.wled.WledClient
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: WallViewModel by viewModels()
+    private val rootViewModel: RootViewModel by viewModels {
+        LambdaViewModelFactory { RootViewModel(WledSettings(applicationContext)) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val state by viewModel.uiState.collectAsState()
-                    WallScreen(
-                        state = state,
-                        onToggle = viewModel::toggleWall,
-                        onRetry = viewModel::refresh
-                    )
+                    val rootState by rootViewModel.uiState.collectAsState()
+                    when (val state = rootState) {
+                        is RootUiState.Loading -> LoadingScreen()
+
+                        is RootUiState.NeedsSetup -> {
+                            val context = LocalContext.current
+                            val setupViewModel: SetupViewModel = viewModel(
+                                factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
+                            )
+                            val setupState by setupViewModel.uiState.collectAsState()
+                            SetupScreen(
+                                state = setupState,
+                                onIpInputChange = setupViewModel::onIpInputChange,
+                                onTestAndSave = setupViewModel::testAndSave,
+                                onContinue = rootViewModel::onSetupComplete
+                            )
+                        }
+
+                        is RootUiState.Ready -> {
+                            val wallViewModel: WallViewModel = viewModel(
+                                factory = LambdaViewModelFactory {
+                                    WallViewModel(WledClient(baseUrl = state.wledBaseUrl))
+                                }
+                            )
+                            val wallState by wallViewModel.uiState.collectAsState()
+                            WallScreen(
+                                state = wallState,
+                                onToggle = wallViewModel::toggleWall,
+                                onRetry = wallViewModel::refresh
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LoadingScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
     }
 }
 

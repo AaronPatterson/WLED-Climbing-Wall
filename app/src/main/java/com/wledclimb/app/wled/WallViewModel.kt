@@ -12,14 +12,10 @@ import kotlinx.coroutines.launch
 private const val TAG = "WallViewModel"
 
 /**
- * Phase 0 walking skeleton: connect to a hardcoded WLED controller and
- * turn the whole wall on/off. Later phases replace the hardcoded IP with
- * the saved connection from a setup screen, and add route control.
+ * Connects to the WLED controller saved during setup and turns the whole
+ * wall on/off. Later phases add per-hold route control.
  */
-class WallViewModel(
-    // TODO(phase 1): move this into a setup screen + persisted setting.
-    private val client: WledClient = WledClient(baseUrl = "http://192.168.30.49")
-) : ViewModel() {
+class WallViewModel(private val client: WledClient) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WallUiState>(WallUiState.Connecting)
     val uiState: StateFlow<WallUiState> = _uiState.asStateFlow()
