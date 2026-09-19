@@ -1,5 +1,6 @@
 package com.wledclimb.app.wled
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -7,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+private const val TAG = "WallViewModel"
 
 /**
  * Phase 0 walking skeleton: connect to a hardcoded WLED controller and
@@ -31,6 +34,7 @@ class WallViewModel(
             _uiState.value = try {
                 WallUiState.Connected(on = client.getOn())
             } catch (e: Exception) {
+                Log.e(TAG, "refresh() failed to reach WLED", e)
                 WallUiState.Error(e.message ?: "Couldn't reach the WLED controller")
             }
         }
@@ -44,6 +48,7 @@ class WallViewModel(
             _uiState.value = try {
                 WallUiState.Connected(on = client.setOn(on = !current.on))
             } catch (e: Exception) {
+                Log.e(TAG, "toggleWall() failed to reach WLED", e)
                 WallUiState.Error(e.message ?: "Couldn't reach the WLED controller")
             }
         }
