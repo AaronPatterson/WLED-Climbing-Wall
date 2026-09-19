@@ -9,4 +9,13 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 ## Status
 
-Not yet started — next step is the Phase 0 walking skeleton (see `docs/design.md`): an app that connects to a hardcoded WLED IP and can turn the wall on/off.
+**Phase 0 (walking skeleton) complete**: the app connects to a hardcoded WLED controller IP and turns the wall on/off via WLED's `/json/state` endpoint, verified against a real controller. Next up: Phase 1, a setup screen for entering/saving the controller address instead of hardcoding it.
+
+## Getting started (opening in Android Studio)
+
+1. Open this folder in Android Studio.
+2. Let Gradle sync automatically (the wrapper is checked in, so this should just work — no separate Gradle/AGP install needed). If it doesn't sync on its own, run **File → Sync Project with Gradle Files**.
+3. Run the `app` configuration on an emulator or device on the same Wi-Fi as your WLED controller.
+4. The controller IP is currently hardcoded in `WallViewModel.kt` (`192.168.30.49`) — a real setup screen for this comes in Phase 1.
+
+Each phase of `docs/design.md`'s build plan is developed on its own branch and merged to `main` via pull request once it's working end-to-end.
