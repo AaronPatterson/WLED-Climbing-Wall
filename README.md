@@ -9,7 +9,7 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 ## Status
 
-**Phase 0 (walking skeleton) in progress**, on branch `phase-0-walking-skeleton`: a minimal app that connects to a hardcoded WLED controller IP and can turn the wall on/off via WLED's `/json/state` endpoint.
+**Phase 0 (walking skeleton) complete**: the app connects to a hardcoded WLED controller IP and turns the wall on/off via WLED's `/json/state` endpoint, verified against a real controller. Next up: Phase 1, a setup screen for entering/saving the controller address instead of hardcoding it.
 
 ## Getting started (opening in Android Studio)
 
