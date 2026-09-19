@@ -42,7 +42,10 @@ class WledClient(
 
     /** Turns the whole wall on or off. */
     suspend fun setOn(on: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("on", on).toString()
+        // WLED's default response to a state-changing POST is just {"success":true};
+        // "v":true asks it to reply with the full state instead, matching what GET returns,
+        // so parseOn() can handle both the same way.
+        val payload = JSONObject().put("on", on).put("v", true).toString()
         val request = Request.Builder()
             .url("$baseUrl/json/state")
             .post(payload.toRequestBody(jsonMediaType))
