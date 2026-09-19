@@ -6,6 +6,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -35,11 +36,7 @@ class WledClient(
             .build()
 
         httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IOException("WLED returned HTTP ${response.code}")
-            }
-            val body = response.body?.string() ?: throw IOException("Empty response from WLED")
-            JSONObject(body).getBoolean("on")
+            parseOn(response)
         }
     }
 
@@ -52,11 +49,26 @@ class WledClient(
             .build()
 
         httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IOException("WLED returned HTTP ${response.code}")
-            }
-            val body = response.body?.string() ?: throw IOException("Empty response from WLED")
+            parseOn(response)
+        }
+    }
+
+    private fun parseOn(response: okhttp3.Response): Boolean {
+        if (!response.isSuccessful) {
+            throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
+        }
+        val body = response.body?.string() ?: throw IOException("Empty response from WLED")
+        return try {
             JSONObject(body).getBoolean("on")
+        } catch (e: JSONException) {
+            // Surface the actual payload so a shape mismatch (e.g. hitting /json instead
+            // of /json/state, or a WLED version returning something unexpected) is obvious
+            // from the error message alone, instead of needing another round trip.
+            throw IOException(
+                "Unexpected response from ${response.request.url} " +
+                    "(no \"on\" field): ${body.take(300)}",
+                e
+            )
         }
     }
 }
