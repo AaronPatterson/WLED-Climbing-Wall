@@ -1,7 +1,6 @@
 package com.wledclimb.app
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.wledclimb.app.settings.WledSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,14 +44,4 @@ class RootViewModel(private val settings: WledSettings) : ViewModel() {
         val current = _uiState.value as? RootUiState.Ready ?: return
         _uiState.value = RootUiState.NeedsSetup(currentUrl = current.wledBaseUrl)
     }
-}
-
-/**
- * Builds a ViewModel from a plain constructor call. Lets screens whose ViewModels
- * need constructor args (a saved URL, a settings instance) still use `viewModels()`/
- * `viewModel()` instead of hand-rolling a `ViewModelProvider.Factory` per class.
- */
-class LambdaViewModelFactory<VM : ViewModel>(private val create: () -> VM) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T = create() as T
 }
