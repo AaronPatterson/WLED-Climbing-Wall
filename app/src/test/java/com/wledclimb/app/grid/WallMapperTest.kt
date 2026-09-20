@@ -59,6 +59,82 @@ class WallMapperTest {
     }
 
     @Test
+    fun `horizontal serpentine panel snakes back and forth by row`() {
+        // vertical=false means serpentine reverses direction across rows
+        // instead of columns - a different branch than the vertical case above.
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 3, height = 2,
+            bottomStart = false, rightStart = false, vertical = false, serpentine = true
+        )
+
+        val wall = buildWall(listOf(panel))
+
+        // Row 0: left to right, as usual.
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(2, wall.ledIndexAt(x = 2, y = 0))
+
+        // Row 1: serpentine reverses it - right to left, continuing from
+        // wherever row 0 ended (x=2) rather than jumping back to x=0.
+        assertEquals(3, wall.ledIndexAt(x = 2, y = 1))
+        assertEquals(4, wall.ledIndexAt(x = 1, y = 1))
+        assertEquals(5, wall.ledIndexAt(x = 0, y = 1))
+    }
+
+    @Test
+    fun `vertical panel without serpentine wires in straight columns`() {
+        // vertical=true in isolation, without serpentine - both columns should
+        // run the same direction (top to bottom), unlike the serpentine case
+        // above where alternating columns reverse.
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 2, height = 3,
+            bottomStart = false, rightStart = false, vertical = true, serpentine = false
+        )
+
+        val wall = buildWall(listOf(panel))
+
+        // Column 0: top to bottom.
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 0, y = 1))
+        assertEquals(2, wall.ledIndexAt(x = 0, y = 2))
+
+        // Column 1: also top to bottom, continuing on - no reversal.
+        assertEquals(3, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(4, wall.ledIndexAt(x = 1, y = 1))
+        assertEquals(5, wall.ledIndexAt(x = 1, y = 2))
+    }
+
+    @Test
+    fun `rightStart reverses which edge a horizontal panel starts from`() {
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 3, height = 1,
+            bottomStart = false, rightStart = true, vertical = false, serpentine = false
+        )
+
+        val wall = buildWall(listOf(panel))
+
+        // LED 0 is at the rightmost column, increasing going left.
+        assertEquals(0, wall.ledIndexAt(x = 2, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(2, wall.ledIndexAt(x = 0, y = 0))
+    }
+
+    @Test
+    fun `bottomStart reverses which edge a horizontal panel's rows start from`() {
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 1, height = 3,
+            bottomStart = true, rightStart = false, vertical = false, serpentine = false
+        )
+
+        val wall = buildWall(listOf(panel))
+
+        // LED 0 is at the bottom row, increasing going up.
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 2))
+        assertEquals(1, wall.ledIndexAt(x = 0, y = 1))
+        assertEquals(2, wall.ledIndexAt(x = 0, y = 0))
+    }
+
+    @Test
     fun `cells not covered by any panel are empty`() {
         val panel = Panel(
             xOffset = 0, yOffset = 0, width = 1, height = 1,
