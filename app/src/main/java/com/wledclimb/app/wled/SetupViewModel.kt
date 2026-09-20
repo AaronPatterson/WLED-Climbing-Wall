@@ -38,8 +38,9 @@ class SetupViewModel(private val settings: WledSettings) : ViewModel() {
             val baseUrl = if (ip.startsWith("http://") || ip.startsWith("https://")) ip else "http://$ip"
             _uiState.value = try {
                 val rawConfig = WledClient(baseUrl = baseUrl).getConfig()
+                Log.d(TAG, "WLED config for $baseUrl: $rawConfig")
                 settings.saveWledIp(baseUrl)
-                SetupUiState.Tested(ip = baseUrl, rawConfig = rawConfig)
+                SetupUiState.Connected(ip = baseUrl)
             } catch (e: Exception) {
                 Log.e(TAG, "testAndSave() failed to reach WLED", e)
                 SetupUiState.Editing(ipInput = ip, error = e.message ?: "Couldn't reach the WLED controller")

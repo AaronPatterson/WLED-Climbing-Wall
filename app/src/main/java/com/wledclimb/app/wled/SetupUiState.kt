@@ -8,5 +8,6 @@ sealed interface SetupUiState {
         val error: String? = null
     ) : SetupUiState
 
-    data class Tested(val ip: String, val rawConfig: String) : SetupUiState
+    /** Test succeeded and the address was saved; the caller should move on to wall control. */
+    data class Connected(val ip: String) : SetupUiState
 }

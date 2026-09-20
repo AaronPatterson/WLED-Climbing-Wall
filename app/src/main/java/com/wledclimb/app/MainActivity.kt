@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wledclimb.app.settings.WledSettings
+import com.wledclimb.app.wled.SetupUiState
 import com.wledclimb.app.wled.SetupViewModel
 import com.wledclimb.app.wled.WallUiState
 import com.wledclimb.app.wled.WallViewModel
@@ -48,11 +50,16 @@ class MainActivity : ComponentActivity() {
                                 factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
                             )
                             val setupState by setupViewModel.uiState.collectAsState()
+                            LaunchedEffect(setupState) {
+                                val connected = setupState as? SetupUiState.Connected
+                                if (connected != null) {
+                                    rootViewModel.onSetupComplete(connected.ip)
+                                }
+                            }
                             SetupScreen(
                                 state = setupState,
                                 onIpInputChange = setupViewModel::onIpInputChange,
-                                onTestAndSave = setupViewModel::testAndSave,
-                                onContinue = rootViewModel::onSetupComplete
+                                onTestAndSave = setupViewModel::testAndSave
                             )
                         }
 

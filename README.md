@@ -11,7 +11,7 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 **Phase 0 (walking skeleton) complete**: the app connects to a hardcoded WLED controller IP and turns the wall on/off via WLED's `/json/state` endpoint, verified against a real controller.
 
-**Phase 1 (setup screen) complete**: on first launch, the app asks for the controller's IP/hostname, tests it by pulling `/json/cfg`, displays the raw config, and saves the address (via DataStore) so future launches skip straight to wall control. Next up: Phase 2, turning that raw config into a real grid model and rendering it on screen.
+**Phase 1 (setup screen) complete**: on first launch, the app asks for the controller's IP/hostname and tests it by pulling `/json/cfg` (logged, not yet shown on screen). On success it saves the address via DataStore and moves straight to wall control; future launches skip setup entirely. Next up: Phase 2, turning that raw config into a real grid model and rendering it on screen.
 
 ## Getting started (opening in Android Studio)
 
