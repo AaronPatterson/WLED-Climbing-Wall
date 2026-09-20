@@ -1,8 +1,9 @@
-package com.wledclimb.app.wled
+package com.wledclimb.app.wall
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wledclimb.app.network.WledClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

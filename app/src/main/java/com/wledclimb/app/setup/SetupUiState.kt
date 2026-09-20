@@ -1,4 +1,4 @@
-package com.wledclimb.app.wled
+package com.wledclimb.app.setup
 
 /** UI-facing state of the setup screen. */
 sealed interface SetupUiState {

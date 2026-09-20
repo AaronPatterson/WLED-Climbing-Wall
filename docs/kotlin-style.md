@@ -53,3 +53,29 @@ The rest of this doc is project-specific: patterns already established in this c
 - One class/interface per file, file name matching the type name — including small general-purpose helpers like `LambdaViewModelFactory`, which gets its own file rather than living inside whichever class happened to need it first.
 - Same rule for top-level screen composables (`LoadingScreen`, `SetupScreen`, `WallScreen`): each gets its own file matching its name, rather than being bundled into `MainActivity.kt`. Keeps `MainActivity.kt` scoped to the Activity itself and the "Route" wiring (see Composables above), and keeps each screen independently easy to find, preview, and test.
 - An extension property/function that logically belongs to a type it doesn't own (`Context.dataStore`) goes at file scope in the file that uses it, marked `private` unless other files genuinely need it too.
+
+## Package structure
+
+Package by **feature**, not by architectural layer — each screen's package holds everything specific to it (its screen composable, ViewModel, and UI state), rather than scattering a feature's own files across `ui/`, `viewmodel/`, `model/`-style layer packages:
+
+```
+com.wledclimb.app/
+├── MainActivity.kt            — app entry + Route wiring (which screen to show)
+├── RootViewModel.kt           — app-level state, not owned by any one feature
+├── LambdaViewModelFactory.kt  — shared utility
+├── LoadingScreen.kt           — app-level, shown before routing to a feature
+├── setup/                     — everything the setup screen needs
+│   ├── SetupScreen.kt
+│   ├── SetupViewModel.kt
+│   └── SetupUiState.kt
+├── wall/                      — everything wall control needs
+│   ├── WallScreen.kt
+│   ├── WallViewModel.kt
+│   └── WallUiState.kt
+├── network/                   — WLED HTTP API client, shared across features
+│   └── WledClient.kt
+└── settings/                  — persisted app settings, shared across features
+    └── WledSettings.kt
+```
+
+New features (Route Editor, Saved Routes, etc. from `docs/design.md`'s build plan) get their own package the same way, so working on one feature stays contained to one folder instead of touching several unrelated ones. Genuinely cross-feature infrastructure (a network client, a settings store, a shared design-system component) gets its own package instead of living inside whichever feature needed it first.

@@ -1,4 +1,4 @@
-package com.wledclimb.app.wled
+package com.wledclimb.app.network
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

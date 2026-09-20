@@ -1,4 +1,4 @@
-package com.wledclimb.app.wled
+package com.wledclimb.app.wall
 
 /** UI-facing state of the wall connection. Kept deliberately small for Phase 0. */
 sealed interface WallUiState {

@@ -13,11 +13,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.filterIsInstance
+import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.settings.WledSettings
-import com.wledclimb.app.wled.SetupUiState
-import com.wledclimb.app.wled.SetupViewModel
-import com.wledclimb.app.wled.WallViewModel
-import com.wledclimb.app.wled.WledClient
+import com.wledclimb.app.setup.SetupScreen
+import com.wledclimb.app.setup.SetupUiState
+import com.wledclimb.app.setup.SetupViewModel
+import com.wledclimb.app.wall.WallScreen
+import com.wledclimb.app.wall.WallViewModel
 
 class MainActivity : ComponentActivity() {
 
