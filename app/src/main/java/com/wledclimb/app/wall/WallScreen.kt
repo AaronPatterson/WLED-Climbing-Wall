@@ -21,13 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wledclimb.app.R
 import com.wledclimb.app.grid.Wall
-
-private val wallOnColor = Color(0xFF2E7D32)
-private val wallOffColor = Color(0xFF616161)
-private val gridCellColor = Color(0xFF546E7A)
+import com.wledclimb.app.theme.WallStatusColors
 
 @Composable
 fun WallScreen(
@@ -46,20 +48,32 @@ fun WallScreen(
         when (state) {
             is WallUiState.Connecting -> {
                 CircularProgressIndicator()
-                Text(text = "Connecting to the wall…", modifier = Modifier.padding(top = 16.dp))
+                Text(
+                    text = stringResource(R.string.wall_connecting),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
             }
 
             is WallUiState.Connected -> {
-                val statusColor = if (state.on) wallOnColor else wallOffColor
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
+                val statusText =
+                    stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
+
+                // Read as one phrase by a screen reader: the dot repeats what
+                // the text already says, so it's hidden rather than announced.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.semantics(mergeDescendants = true) {}
+                ) {
                     Box(
                         modifier = Modifier
                             .size(16.dp)
                             .background(color = statusColor, shape = CircleShape)
+                            .clearAndSetSemantics { }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (state.on) "Wall is ON" else "Wall is OFF",
+                        text = statusText,
                         color = statusColor,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
@@ -71,20 +85,32 @@ fun WallScreen(
                     enabled = !state.busy,
                     modifier = Modifier.padding(top = 16.dp)
                 ) {
-                    Text(text = if (state.on) "Turn wall off" else "Turn wall on")
+                    Text(
+                        text = stringResource(
+                            if (state.on) R.string.wall_turn_off else R.string.wall_turn_on
+                        )
+                    )
                 }
             }
 
             is WallUiState.Error -> {
-                Text(text = "Couldn't reach the wall")
-                Text(text = state.message, modifier = Modifier.padding(top = 8.dp))
+                Text(text = stringResource(R.string.wall_error_title))
+                Text(
+                    text = stringResource(
+                        when (state.problem) {
+                            WallProblem.Unreachable -> R.string.wall_error_unreachable
+                            WallProblem.NotAWledMatrix -> R.string.wall_error_not_wled
+                        }
+                    ),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
                 Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-                    Text(text = "Retry")
+                    Text(text = stringResource(R.string.wall_retry))
                 }
             }
         }
         TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
-            Text(text = "Change controller")
+            Text(text = stringResource(R.string.wall_change_controller))
         }
     }
 }
@@ -96,7 +122,17 @@ fun WallScreen(
  */
 @Composable
 private fun WallGrid(wall: Wall, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
+    val cellColor = WallStatusColors.gridCell
+    // Individual cells mean nothing to a screen reader and there can be
+    // hundreds, so the grid is described once as a whole instead.
+    val description = stringResource(
+        R.string.wall_grid_description,
+        wall.cells.sumOf { row -> row.count { it != null } },
+        wall.width,
+        wall.height
+    )
+
+    Column(modifier = modifier.semantics { contentDescription = description }) {
         for (row in wall.cells) {
             Row {
                 for (cell in row) {
@@ -105,7 +141,7 @@ private fun WallGrid(wall: Wall, modifier: Modifier = Modifier) {
                             .padding(1.dp)
                             .size(16.dp)
                             .background(
-                                color = if (cell != null) gridCellColor else Color.Transparent,
+                                color = if (cell != null) cellColor else Color.Transparent,
                                 shape = RoundedCornerShape(2.dp)
                             )
                     )

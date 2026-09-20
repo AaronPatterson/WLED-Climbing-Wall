@@ -57,11 +57,11 @@ class SetupViewModel(
 
         val ip = current.ipInput.trim()
         if (ip.isEmpty()) {
-            _uiState.value = current.copy(error = "Enter the controller's IP address or hostname")
+            _uiState.value = current.copy(problem = SetupProblem.EmptyAddress)
             return
         }
 
-        _uiState.value = current.copy(testing = true, error = null)
+        _uiState.value = current.copy(testing = true, problem = null)
         viewModelScope.launch {
             val baseUrl = if (ip.startsWith("http://") || ip.startsWith("https://")) ip else "http://$ip"
             _uiState.value = try {
@@ -80,16 +80,10 @@ class SetupViewModel(
                 throw e
             } catch (e: WledConfigException) {
                 Log.e(TAG, "testAndSave() reached $baseUrl, but its config is unusable", e)
-                SetupUiState.Editing(
-                    ipInput = ip,
-                    error = "Reached a device at $ip, but it isn't a WLED controller with a 2D matrix set up."
-                )
+                SetupUiState.Editing(ipInput = ip, problem = SetupProblem.NotAWledMatrix(ip))
             } catch (e: Exception) {
                 Log.e(TAG, "testAndSave() failed to reach WLED", e)
-                SetupUiState.Editing(
-                    ipInput = ip,
-                    error = "Couldn't reach $ip. Check the address and that the controller is on the same Wi-Fi."
-                )
+                SetupUiState.Editing(ipInput = ip, problem = SetupProblem.Unreachable(ip))
             }
         }
     }

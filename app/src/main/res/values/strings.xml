@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">WLED Climb</string>
+
+    <!-- Setup screen -->
+    <string name="setup_title">Connect to your WLED controller</string>
+    <string name="setup_address_label">Controller IP or hostname</string>
+    <string name="setup_test_and_save">Test &amp; save</string>
+    <string name="setup_connected">Connected</string>
+    <string name="setup_error_empty_address">Enter the controller\'s IP address or hostname</string>
+    <string name="setup_error_unreachable">Couldn\'t reach %1$s. Check the address and that the controller is on the same Wi-Fi.</string>
+    <string name="setup_error_not_wled">Reached a device at %1$s, but it isn\'t a WLED controller with a 2D matrix set up.</string>
+
+    <!-- Wall control -->
+    <string name="wall_connecting">Connecting to the wall…</string>
+    <string name="wall_is_on">Wall is ON</string>
+    <string name="wall_is_off">Wall is OFF</string>
+    <string name="wall_turn_on">Turn wall on</string>
+    <string name="wall_turn_off">Turn wall off</string>
+    <string name="wall_change_controller">Change controller</string>
+    <string name="wall_error_title">Couldn\'t reach the wall</string>
+    <string name="wall_error_unreachable">Couldn\'t reach the WLED controller. Check that it\'s on and on the same Wi-Fi.</string>
+    <string name="wall_error_not_wled">The controller answered, but isn\'t set up as a 2D matrix in WLED.</string>
+    <string name="wall_retry">Retry</string>
+
+    <!-- Accessibility -->
+    <string name="wall_loading_description">Loading</string>
+    <string name="wall_grid_description">Wall layout: %1$d holds across a %2$d by %3$d grid</string>
 </resources>

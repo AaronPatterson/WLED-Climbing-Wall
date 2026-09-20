@@ -76,20 +76,16 @@ class WallViewModelTest {
     fun `an unreachable controller reports a network problem`() = runTest {
         val viewModel = WallViewModel(FakeWledClient(failWith = IOException("connect timed out")))
 
-        val state = viewModel.uiState.value as WallUiState.Error
-        assertTrue(state.message.contains("Couldn't reach"))
-        assertTrue(state.message.contains("Wi-Fi"))
+        assertEquals(WallUiState.Error(WallProblem.Unreachable), viewModel.uiState.value)
     }
 
     @Test
     fun `a controller that isn't a 2D matrix reports a config problem, not a network one`() = runTest {
         val viewModel = WallViewModel(FakeWledClient(config = ONE_DIMENSIONAL_CONFIG))
 
-        val state = viewModel.uiState.value as WallUiState.Error
-        assertTrue(state.message.contains("2D matrix"))
-        // The controller answered fine - telling the user to check Wi-Fi would
-        // send them off debugging the wrong thing entirely.
-        assertTrue(!state.message.contains("Wi-Fi"))
+        // The controller answered fine - reporting this as a network problem
+        // would send the user off debugging the wrong thing entirely.
+        assertEquals(WallUiState.Error(WallProblem.NotAWledMatrix), viewModel.uiState.value)
     }
 
     @Test
