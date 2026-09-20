@@ -13,6 +13,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,8 +47,14 @@ class MainActivity : ComponentActivity() {
 
                         is RootUiState.NeedsSetup -> {
                             val context = LocalContext.current
+                            // Keyed on visitId so returning here to change an existing
+                            // address gets a fresh ViewModel instead of the one left
+                            // over (already "Connected", stale text field) from last time.
                             val setupViewModel: SetupViewModel = viewModel(
-                                factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
+                                key = state.visitId.toString(),
+                                factory = LambdaViewModelFactory {
+                                    SetupViewModel(WledSettings(context), initialIp = state.currentUrl)
+                                }
                             )
                             val setupState by setupViewModel.uiState.collectAsState()
                             LaunchedEffect(setupState) {
@@ -64,7 +71,10 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is RootUiState.Ready -> {
+                            // Keyed on the address so switching controllers gets a WallViewModel
+                            // (and WledClient) pointed at the new one, not the previous instance.
                             val wallViewModel: WallViewModel = viewModel(
+                                key = state.wledBaseUrl,
                                 factory = LambdaViewModelFactory {
                                     WallViewModel(WledClient(baseUrl = state.wledBaseUrl))
                                 }
@@ -73,7 +83,8 @@ class MainActivity : ComponentActivity() {
                             WallScreen(
                                 state = wallState,
                                 onToggle = wallViewModel::toggleWall,
-                                onRetry = wallViewModel::refresh
+                                onRetry = wallViewModel::refresh,
+                                onChangeController = rootViewModel::onChangeController
                             )
                         }
                     }
@@ -98,7 +109,8 @@ fun LoadingScreen() {
 fun WallScreen(
     state: WallUiState,
     onToggle: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onChangeController: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -131,6 +143,9 @@ fun WallScreen(
                     Text(text = "Retry")
                 }
             }
+        }
+        TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
+            Text(text = "Change controller")
         }
     }
 }

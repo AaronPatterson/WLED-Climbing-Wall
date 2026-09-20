@@ -15,10 +15,19 @@ private const val TAG = "SetupViewModel"
  * Phase 1 setup screen: enter a WLED controller address, test it by pulling
  * `/json/cfg`, and save it for future launches. Later phases parse the raw
  * config into a real `Wall` model instead of just displaying it.
+ *
+ * [initialIp] pre-fills the field when re-opening this screen to change an
+ * already-saved address (its "http://" prefix is stripped since that's added
+ * back automatically in [testAndSave], same as for a freshly typed address).
  */
-class SetupViewModel(private val settings: WledSettings) : ViewModel() {
+class SetupViewModel(
+    private val settings: WledSettings,
+    initialIp: String? = null
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<SetupUiState>(SetupUiState.Editing(ipInput = ""))
+    private val _uiState = MutableStateFlow<SetupUiState>(
+        SetupUiState.Editing(ipInput = initialIp.orEmpty().removePrefix("http://").removePrefix("https://"))
+    )
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
 
     fun onIpInputChange(ip: String) {
