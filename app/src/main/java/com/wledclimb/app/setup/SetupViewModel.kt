@@ -61,7 +61,10 @@ class SetupViewModel(private val settings: WledSettings) : ViewModel() {
                 SetupUiState.Connected(ip = baseUrl)
             } catch (e: Exception) {
                 Log.e(TAG, "testAndSave() failed to reach WLED", e)
-                SetupUiState.Editing(ipInput = ip, error = e.message ?: "Couldn't reach the WLED controller")
+                SetupUiState.Editing(
+                    ipInput = ip,
+                    error = "Couldn't reach $ip. Check the address and that the controller is on the same Wi-Fi."
+                )
             }
         }
     }

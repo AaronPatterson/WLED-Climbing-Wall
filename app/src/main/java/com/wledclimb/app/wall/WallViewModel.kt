@@ -32,7 +32,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                 WallUiState.Connected(on = client.getOn())
             } catch (e: Exception) {
                 Log.e(TAG, "refresh() failed to reach WLED", e)
-                WallUiState.Error(e.message ?: "Couldn't reach the WLED controller")
+                WallUiState.Error("Couldn't reach the WLED controller. Check that it's on and on the same Wi-Fi.")
             }
         }
     }
@@ -46,7 +46,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                 WallUiState.Connected(on = client.setOn(on = !current.on))
             } catch (e: Exception) {
                 Log.e(TAG, "toggleWall() failed to reach WLED", e)
-                WallUiState.Error(e.message ?: "Couldn't reach the WLED controller")
+                WallUiState.Error("Couldn't reach the WLED controller. Check that it's on and on the same Wi-Fi.")
             }
         }
     }
