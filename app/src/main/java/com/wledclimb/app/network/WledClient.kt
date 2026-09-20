@@ -1,4 +1,4 @@
-package com.wledclimb.app.wled
+package com.wledclimb.app.network
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,10 +14,10 @@ import java.util.concurrent.TimeUnit
 /**
  * Minimal client for a WLED controller's JSON HTTP API.
  *
- * Phase 0 only needs the wall on/off switch, so this wraps exactly one
- * endpoint: GET/POST http://<ip>/json/state. See https://kno.wled.ge/interfaces/json-api/
- * for the full API this will grow into (segments, colors, presets, /json/cfg for the
- * 2D matrix layout, etc.) in later phases.
+ * Wraps two endpoints so far: GET/POST http://<ip>/json/state (wall on/off) and
+ * GET http://<ip>/json/cfg (raw grid/segment config, used by the setup screen).
+ * See https://kno.wled.ge/interfaces/json-api/ for the full API this will grow
+ * into (colors, presets, etc.) in later phases.
  */
 class WledClient(
     private val baseUrl: String,
@@ -53,6 +53,24 @@ class WledClient(
 
         httpClient.newCall(request).execute().use { response ->
             parseOn(response)
+        }
+    }
+
+    /**
+     * Raw JSON from WLED's `/json/cfg` endpoint (grid layout, LED count, segments).
+     * Returned as-is for now; Phase 2 parses this into a real `Wall` model.
+     */
+    suspend fun getConfig(): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$baseUrl/json/cfg")
+            .get()
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
+            }
+            response.body?.string() ?: throw IOException("Empty response from WLED")
         }
     }
 

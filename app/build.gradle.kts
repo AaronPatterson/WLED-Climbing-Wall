@@ -58,5 +58,8 @@ dependencies {
     // Simple HTTP client for talking to the WLED JSON API
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // Persists the saved WLED controller address across app restarts
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
