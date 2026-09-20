@@ -1,8 +1,10 @@
 package com.wledclimb.app.wall
 
-/** UI-facing state of the wall connection. Kept deliberately small for Phase 0. */
+import com.wledclimb.app.grid.Wall
+
+/** UI-facing state of the wall connection. */
 sealed interface WallUiState {
     data object Connecting : WallUiState
-    data class Connected(val on: Boolean, val busy: Boolean = false) : WallUiState
+    data class Connected(val on: Boolean, val wall: Wall, val busy: Boolean = false) : WallUiState
     data class Error(val message: String) : WallUiState
 }

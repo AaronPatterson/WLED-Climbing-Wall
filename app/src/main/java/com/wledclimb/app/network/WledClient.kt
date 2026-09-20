@@ -14,9 +14,11 @@ import java.util.concurrent.TimeUnit
 /**
  * Minimal client for a WLED controller's JSON HTTP API.
  *
- * Wraps two endpoints so far: GET/POST http://<ip>/json/state (wall on/off) and
- * GET http://<ip>/json/cfg (raw grid/segment config, used by the setup screen).
- * See https://kno.wled.ge/interfaces/json-api/ for the full API this will grow
+ * Wraps three endpoints so far: GET/POST http://<ip>/json/state (wall on/off),
+ * GET http://<ip>/json/cfg (raw grid/segment config), and GET http://<ip>/2d-gaps.json
+ * (an optional file WLED serves directly from its filesystem - present only if
+ * gaps were configured in WLED's own 2D setup UI). See
+ * https://kno.wled.ge/interfaces/json-api/ for the full API this will grow
  * into (colors, presets, etc.) in later phases.
  */
 class WledClient(
@@ -71,6 +73,23 @@ class WledClient(
                 throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
             }
             response.body?.string() ?: throw IOException("Empty response from WLED")
+        }
+    }
+
+    /**
+     * Raw JSON array from WLED's `/2d-gaps.json`, or null if no gap file is
+     * configured (WLED serves this file only if one was uploaded via its own
+     * 2D setup UI - a 404 here is the normal, common case, not an error).
+     */
+    suspend fun getGaps(): String? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$baseUrl/2d-gaps.json")
+            .get()
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@withContext null
+            response.body?.string()
         }
     }
 

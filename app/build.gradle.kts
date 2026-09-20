@@ -62,4 +62,13 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
+    // org.json is part of the Android SDK, but local unit tests run against a
+    // stub android.jar whose org.json methods throw "not mocked". This pulls
+    // in a real implementation so tests that parse JSON actually work.
+    testImplementation("org.json:json:20231013")
+    // Fake HTTP server so WledClient's request/response handling (headers,
+    // status codes, timeouts) can be tested without a real WLED controller.
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

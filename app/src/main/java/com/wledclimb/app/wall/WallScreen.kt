@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -22,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wledclimb.app.grid.Wall
 
 private val wallOnColor = Color(0xFF2E7D32)
 private val wallOffColor = Color(0xFF616161)
+private val gridCellColor = Color(0xFF546E7A)
 
 @Composable
 fun WallScreen(
@@ -62,6 +65,7 @@ fun WallScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
+                WallGrid(wall = state.wall, modifier = Modifier.padding(top = 16.dp))
                 Button(
                     onClick = onToggle,
                     enabled = !state.busy,
@@ -81,6 +85,32 @@ fun WallScreen(
         }
         TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
             Text(text = "Change controller")
+        }
+    }
+}
+
+/**
+ * Read-only preview of the wall's LED grid: a filled square for each cell a
+ * panel covers, blank for gaps. Phase 3 makes this interactive (tap to light
+ * a hold); for now it's just confirmation the grid layout came through.
+ */
+@Composable
+private fun WallGrid(wall: Wall, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        for (row in wall.cells) {
+            Row {
+                for (cell in row) {
+                    Box(
+                        modifier = Modifier
+                            .padding(1.dp)
+                            .size(16.dp)
+                            .background(
+                                color = if (cell != null) gridCellColor else Color.Transparent,
+                                shape = RoundedCornerShape(2.dp)
+                            )
+                    )
+                }
+            }
         }
     }
 }

@@ -76,8 +76,15 @@ com.wledclimb.app/
 │   └── WallUiState.kt
 ├── network/                   — WLED HTTP API client, shared across features
 │   └── WledClient.kt
-└── settings/                  — persisted app settings, shared across features
-    └── WledSettings.kt
+├── settings/                  — persisted app settings, shared across features
+│   └── WledSettings.kt
+└── grid/                      — the Wall domain model, shared across features
+    ├── Panel.kt                — one physical panel from /json/cfg
+    ├── Wall.kt                 — the logical grid: cell -> LED index or empty
+    ├── WallMapper.kt           — builds a Wall from panels (ports WLED's own algorithm)
+    └── WledConfigParser.kt     — parses /json/cfg into Panels
 ```
+
+`grid` isn't a single screen's package like `setup`/`wall` — per `docs/design.md`, `Wall` is "the core domain concept" meant to be shared by every screen that deals with the grid (Wall control today, Route Editor/Saved Routes later), so it lives alongside `network`/`settings` as shared infrastructure rather than being owned by one feature.
 
 New features (Route Editor, Saved Routes, etc. from `docs/design.md`'s build plan) get their own package the same way, so working on one feature stays contained to one folder instead of touching several unrelated ones. Genuinely cross-feature infrastructure (a network client, a settings store, a shared design-system component) gets its own package instead of living inside whichever feature needed it first.
