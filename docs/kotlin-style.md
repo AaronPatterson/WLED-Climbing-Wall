@@ -35,7 +35,7 @@ The rest of this doc is project-specific: patterns already established in this c
 ## Composables
 
 - Screen-level composables (`WallScreen`, `SetupScreen`) take plain state and event lambdas as parameters (`state: WallUiState, onToggle: () -> Unit`), never a ViewModel directly. This is "state hoisting": it keeps the composable previewable and testable without standing up a real ViewModel's dependencies (a `Context`, a `DataStore`, a network client), and its signature documents exactly what it can read and do instead of exposing the ViewModel's whole API.
-- The one place per screen that's allowed to depend on a ViewModel is its "Route" — currently the corresponding branch of the `when` in `MainActivity`'s `setContent { }` (e.g. the `RootUiState.NeedsSetup` branch for `SetupScreen`). That's where `viewModel()`/`viewModels()`, `collectAsState()`, and `LaunchedEffect` live; everything below it takes hoisted state and lambdas.
+- The one place per screen that's allowed to depend on a ViewModel is its "Route" — a small composable per feature (`SetupRoute`, `WallRoute`), living alongside that feature's other files. That's where `viewModel()`/`viewModels()`, `collectAsState()`, and `LaunchedEffect` live; everything below it (the `Screen` composable) takes hoisted state and lambdas. Keeps `MainActivity`'s own `when` a short dispatch table — one line per state, calling out to a `Route` — instead of the ViewModel-construction and effect-wiring code piling up inline as more screens are added.
 
 ## Coroutines
 
@@ -60,15 +60,17 @@ Package by **feature**, not by architectural layer — each screen's package hol
 
 ```
 com.wledclimb.app/
-├── MainActivity.kt            — app entry + Route wiring (which screen to show)
+├── MainActivity.kt            — app entry + dispatch (which Route to show)
 ├── RootViewModel.kt           — app-level state, not owned by any one feature
 ├── LambdaViewModelFactory.kt  — shared utility
 ├── LoadingScreen.kt           — app-level, shown before routing to a feature
 ├── setup/                     — everything the setup screen needs
+│   ├── SetupRoute.kt          — owns SetupViewModel, wires it to SetupScreen
 │   ├── SetupScreen.kt
 │   ├── SetupViewModel.kt
 │   └── SetupUiState.kt
 ├── wall/                      — everything wall control needs
+│   ├── WallRoute.kt           — owns WallViewModel, wires it to WallScreen
 │   ├── WallScreen.kt
 │   ├── WallViewModel.kt
 │   └── WallUiState.kt
