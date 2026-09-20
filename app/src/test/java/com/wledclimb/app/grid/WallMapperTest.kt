@@ -71,4 +71,42 @@ class WallMapperTest {
         assertEquals(1, wall.ledIndexAt(x = 2, y = 2))
         assertNull(wall.ledIndexAt(x = 1, y = 1))
     }
+
+    private val threeWideRow = Panel(
+        xOffset = 0, yOffset = 0, width = 3, height = 1,
+        bottomStart = false, rightStart = false, vertical = false, serpentine = false
+    )
+
+    @Test
+    fun `a gap value of -1 is unmapped and does not shift later indices`() {
+        // Middle cell has no LED at all - the cell after it keeps the index
+        // it would have had anyway, as if the missing one was never wired.
+        val wall = buildWall(listOf(threeWideRow), gaps = listOf(1, -1, 1))
+
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertNull(wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 2, y = 0))
+    }
+
+    @Test
+    fun `a gap value of 0 is unmapped but still shifts later indices`() {
+        // Middle cell has a real LED wired there, just marked unusable - the
+        // cell after it still has to skip over that LED's index.
+        val wall = buildWall(listOf(threeWideRow), gaps = listOf(1, 0, 1))
+
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertNull(wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(2, wall.ledIndexAt(x = 2, y = 0))
+    }
+
+    @Test
+    fun `a gap list shorter than the matrix is ignored entirely`() {
+        // Matches WLED's own fallback: an incomplete gap file is discarded
+        // rather than partially applied.
+        val wall = buildWall(listOf(threeWideRow), gaps = listOf(1, -1))
+
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(2, wall.ledIndexAt(x = 2, y = 0))
+    }
 }

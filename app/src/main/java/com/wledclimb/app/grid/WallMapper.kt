@@ -9,10 +9,21 @@ package com.wledclimb.app.grid
  * them), and each panel's LEDs are assigned sequential indices continuing
  * from the previous panel's last one - that running count *is* the LED index
  * WLED uses for individual-pixel control, not something computed separately.
+ *
+ * [gaps], if present, is WLED's optional `/2d-gaps.json`: one entry per cell
+ * in the matrix's bounding box (row-major), where -1 means no LED is
+ * physically there at all (doesn't consume an LED index) and 0 means an LED
+ * *is* wired there but is inactive/unusable (consumes an index but isn't
+ * mapped) - the two differ in whether every LED index *after* that point
+ * shifts by one, so getting this distinction wrong misaligns every
+ * subsequent hold, not just the gapped one. A [gaps] list shorter than the
+ * matrix's cell count is ignored entirely, matching WLED's own fallback.
  */
-fun buildWall(panels: List<Panel>): Wall {
+fun buildWall(panels: List<Panel>, gaps: List<Int>? = null): Wall {
     val width = panels.maxOfOrNull { it.xOffset + it.width } ?: 0
     val height = panels.maxOfOrNull { it.yOffset + it.height } ?: 0
+
+    val effectiveGaps = gaps?.takeIf { it.size >= width * height }
 
     val cells = MutableList(height) { MutableList<Int?>(width) { null } }
 
@@ -42,8 +53,13 @@ fun buildWall(panels: List<Panel>): Wall {
                 val globalX = panel.xOffset + if (panel.vertical) localY else localX
                 val globalY = panel.yOffset + if (panel.vertical) localX else localY
 
-                cells[globalY][globalX] = ledIndex
-                ledIndex++
+                val gapValue = effectiveGaps?.get(globalY * width + globalX)
+                if (gapValue == null || gapValue > 0) {
+                    cells[globalY][globalX] = ledIndex
+                }
+                if (gapValue == null || gapValue >= 0) {
+                    ledIndex++
+                }
             }
         }
     }

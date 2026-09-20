@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wledclimb.app.grid.buildWall
+import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,9 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
             _uiState.value = WallUiState.Connecting
             _uiState.value = try {
                 val on = client.getOn()
-                val wall = buildWall(parsePanels(client.getConfig()))
+                val panels = parsePanels(client.getConfig())
+                val gaps = client.getGaps()?.let { parseGaps(it) }
+                val wall = buildWall(panels, gaps)
                 WallUiState.Connected(on = on, wall = wall)
             } catch (e: Exception) {
                 Log.e(TAG, "refresh() failed to reach WLED", e)

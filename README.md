@@ -14,7 +14,7 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 **Phase 1 (setup screen) complete**: on first launch, the app asks for the controller's IP/hostname and tests it by pulling `/json/cfg`. On success it saves the address via DataStore and moves straight to wall control; future launches skip setup entirely. A "Change controller" button on the wall screen goes back to setup (pre-filled with the current address) to switch to a different one at any time.
 
-**Phase 2 (grid layout) complete**: the wall screen now parses `/json/cfg`'s panel layout into a real grid (porting WLED's own `setUpMatrix()` panel-to-LED-index algorithm, verified against a real controller's config with unit tests) and renders it as a read-only preview above the on/off toggle. Next up: Phase 3, making the grid interactive (tap a hold to toggle its color, live).
+**Phase 2 (grid layout) complete**: the wall screen now parses `/json/cfg`'s panel layout into a real grid (porting WLED's own `setUpMatrix()` panel-to-LED-index algorithm, verified against a real controller's config with unit tests) and renders it as a read-only preview above the on/off toggle. It also reads WLED's optional `/2d-gaps.json`, if configured, to exclude matrix positions that don't have a real LED — on the wall this was tested against, that turned out to matter a lot: the grid is a sparse, irregular shape, not the solid rectangle the panel layout alone would suggest. Next up: Phase 3, making the grid interactive (tap a hold to toggle its color, live).
 
 ## Getting started (opening in Android Studio)
 
