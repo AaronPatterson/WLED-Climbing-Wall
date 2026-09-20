@@ -51,4 +51,5 @@ The rest of this doc is project-specific: patterns already established in this c
 ## File organization
 
 - One class/interface per file, file name matching the type name — including small general-purpose helpers like `LambdaViewModelFactory`, which gets its own file rather than living inside whichever class happened to need it first.
+- Same rule for top-level screen composables (`LoadingScreen`, `SetupScreen`, `WallScreen`): each gets its own file matching its name, rather than being bundled into `MainActivity.kt`. Keeps `MainActivity.kt` scoped to the Activity itself and the "Route" wiring (see Composables above), and keeps each screen independently easy to find, preview, and test.
 - An extension property/function that logically belongs to a type it doesn't own (`Context.dataStore`) goes at file scope in the file that uses it, marked `private` unless other files genuinely need it too.
