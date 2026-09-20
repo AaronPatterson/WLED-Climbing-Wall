@@ -16,19 +16,27 @@ private const val TAG = "SetupViewModel"
  * `/json/cfg`, and save it for future launches. Later phases parse the raw
  * config into a real `Wall` model instead of just displaying it.
  *
- * [initialIp] pre-fills the field when re-opening this screen to change an
- * already-saved address (its "http://" prefix is stripped since that's added
- * back automatically in [testAndSave], same as for a freshly typed address).
+ * A single instance of this ViewModel is reused for the app's whole lifetime
+ * (see MainActivity) rather than recreated per visit, so [reset] is called
+ * each time the setup screen is (re-)entered instead of relying on a fresh
+ * constructor call to establish the starting state.
  */
-class SetupViewModel(
-    private val settings: WledSettings,
-    initialIp: String? = null
-) : ViewModel() {
+class SetupViewModel(private val settings: WledSettings) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<SetupUiState>(
-        SetupUiState.Editing(ipInput = initialIp.orEmpty().removePrefix("http://").removePrefix("https://"))
-    )
+    private val _uiState = MutableStateFlow<SetupUiState>(SetupUiState.Editing(ipInput = ""))
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
+
+    /**
+     * Clears out any leftover state from a previous visit (a stale error, an
+     * old address being edited) and pre-fills [currentIp] if there is one -
+     * i.e. this screen is being reopened to change an already-working address
+     * rather than being set up for the first time.
+     */
+    fun reset(currentIp: String?) {
+        _uiState.value = SetupUiState.Editing(
+            ipInput = currentIp.orEmpty().removePrefix("http://").removePrefix("https://")
+        )
+    }
 
     fun onIpInputChange(ip: String) {
         _uiState.value = SetupUiState.Editing(ipInput = ip)

@@ -14,13 +14,8 @@ import kotlinx.coroutines.launch
 sealed interface RootUiState {
     data object Loading : RootUiState
 
-    /**
-     * [currentUrl] pre-fills the setup screen when returning to it to change an
-     * already-working address; [visitId] forces a fresh SetupViewModel each time
-     * (see the `viewModel(key = ...)` call in MainActivity) instead of reusing
-     * whatever was left over from a previous visit to this screen.
-     */
-    data class NeedsSetup(val currentUrl: String? = null, val visitId: Int = 0) : RootUiState
+    /** [currentUrl] pre-fills the setup screen when returning to it to change an already-working address. */
+    data class NeedsSetup(val currentUrl: String? = null) : RootUiState
 
     data class Ready(val wledBaseUrl: String) : RootUiState
 }
@@ -33,8 +28,6 @@ class RootViewModel(private val settings: WledSettings) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RootUiState>(RootUiState.Loading)
     val uiState: StateFlow<RootUiState> = _uiState.asStateFlow()
-
-    private var setupVisitId = 0
 
     init {
         viewModelScope.launch {
@@ -50,8 +43,7 @@ class RootViewModel(private val settings: WledSettings) : ViewModel() {
     /** Called from the wall screen to go back and point the app at a different controller. */
     fun onChangeController() {
         val current = _uiState.value as? RootUiState.Ready ?: return
-        setupVisitId++
-        _uiState.value = RootUiState.NeedsSetup(currentUrl = current.wledBaseUrl, visitId = setupVisitId)
+        _uiState.value = RootUiState.NeedsSetup(currentUrl = current.wledBaseUrl)
     }
 }
 

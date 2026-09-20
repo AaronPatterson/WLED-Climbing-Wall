@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.filterIsInstance
 import com.wledclimb.app.settings.WledSettings
 import com.wledclimb.app.wled.SetupUiState
 import com.wledclimb.app.wled.SetupViewModel
@@ -47,22 +48,20 @@ class MainActivity : ComponentActivity() {
 
                         is RootUiState.NeedsSetup -> {
                             val context = LocalContext.current
-                            // Keyed on visitId so returning here to change an existing
-                            // address gets a fresh ViewModel instead of the one left
-                            // over (already "Connected", stale text field) from last time.
                             val setupViewModel: SetupViewModel = viewModel(
-                                key = state.visitId.toString(),
-                                factory = LambdaViewModelFactory {
-                                    SetupViewModel(WledSettings(context), initialIp = state.currentUrl)
-                                }
+                                factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
                             )
-                            val setupState by setupViewModel.uiState.collectAsState()
-                            LaunchedEffect(setupState) {
-                                val connected = setupState as? SetupUiState.Connected
-                                if (connected != null) {
-                                    rootViewModel.onSetupComplete(connected.ip)
-                                }
+                            // Runs once each time this screen is (re-)entered - e.g. after
+                            // tapping "Change controller". Resets first (clearing whatever was
+                            // left over from last visit) before watching for a fresh success,
+                            // so a leftover Connected from last time can't be seen as a new one.
+                            LaunchedEffect(Unit) {
+                                setupViewModel.reset(currentIp = state.currentUrl)
+                                setupViewModel.uiState
+                                    .filterIsInstance<SetupUiState.Connected>()
+                                    .collect { connected -> rootViewModel.onSetupComplete(connected.ip) }
                             }
+                            val setupState by setupViewModel.uiState.collectAsState()
                             SetupScreen(
                                 state = setupState,
                                 onIpInputChange = setupViewModel::onIpInputChange,
