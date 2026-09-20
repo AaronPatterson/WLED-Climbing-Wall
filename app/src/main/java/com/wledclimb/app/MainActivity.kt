@@ -20,7 +20,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.filterIsInstance
@@ -47,9 +46,8 @@ class MainActivity : ComponentActivity() {
                         is RootUiState.Loading -> LoadingScreen()
 
                         is RootUiState.NeedsSetup -> {
-                            val context = LocalContext.current
                             val setupViewModel: SetupViewModel = viewModel(
-                                factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
+                                factory = LambdaViewModelFactory { SetupViewModel(WledSettings(applicationContext)) }
                             )
                             // Runs once each time this screen is (re-)entered - e.g. after
                             // tapping "Change controller". Resets first (clearing whatever was
