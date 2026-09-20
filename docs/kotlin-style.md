@@ -37,9 +37,18 @@ The rest of this doc is project-specific: patterns already established in this c
 - Screen-level composables (`WallScreen`, `SetupScreen`) take plain state and event lambdas as parameters (`state: WallUiState, onToggle: () -> Unit`), never a ViewModel directly. This is "state hoisting": it keeps the composable previewable and testable without standing up a real ViewModel's dependencies (a `Context`, a `DataStore`, a network client), and its signature documents exactly what it can read and do instead of exposing the ViewModel's whole API.
 - The one place per screen that's allowed to depend on a ViewModel is its "Route" — a small composable per feature (`SetupRoute`, `WallRoute`), living alongside that feature's other files. That's where `viewModel()`/`viewModels()`, `collectAsState()`, and `LaunchedEffect` live; everything below it (the `Screen` composable) takes hoisted state and lambdas. Keeps `MainActivity`'s own `when` a short dispatch table — one line per state, calling out to a `Route` — instead of the ViewModel-construction and effect-wiring code piling up inline as more screens are added.
 
+## Testing
+
+- **Anything a ViewModel depends on gets an interface**, with the real implementation named after its mechanism (`WledSettings`/`DataStoreWledSettings`, `WledClient`/`HttpWledClient`). Without this, ViewModel tests need a real `Context` or real sockets, and stop being worth writing. Fakes live in the test source set (`FakeWledSettings`, `FakeWledClient`).
+- **ViewModel tests need `MainDispatcherRule`.** `viewModelScope` dispatches on `Dispatchers.Main`, which doesn't exist in a local JVM test - without the rule every such test fails with "Module with the Main dispatcher had failed to initialize".
+- **Test behavior through the public state, not internals**: drive a ViewModel with its own functions and assert on `uiState.value`. Don't reach for the private `_uiState`.
+- `HttpWledClient` is tested against MockWebServer (real HTTP, faked server); everything above it is tested against fakes (no sockets, no timing). Keep that split - integration-flavored tests at the boundary, fast deterministic tests everywhere else.
+- `testOptions { unitTests.isReturnDefaultValues = true }` is set because `android.util.Log` is stubbed in local unit tests and otherwise throws, failing any test covering a path that logs.
+
 ## Coroutines
 
 - Launch coroutines from `viewModelScope` — never a manually created `CoroutineScope` or `GlobalScope`. Ties the coroutine's lifetime to the ViewModel automatically.
+- **Never let `catch (e: Exception)` swallow `CancellationException`** — it extends `Exception`, so a broad catch turns "this coroutine was cancelled" into a fake failure state and breaks structured concurrency. Rethrow it first (`catch (e: CancellationException) { throw e }`) before any broad catch.
 - A `suspend fun` that does blocking I/O (network, disk) should wrap the actual blocking call in `withContext(Dispatchers.IO) { ... }`, as in `WledClient.getOn()`/`getConfig()`.
 - Only mark a function `suspend` if it genuinely suspends (calls another suspend function) — don't add it just because a class happens to deal with coroutines elsewhere.
 

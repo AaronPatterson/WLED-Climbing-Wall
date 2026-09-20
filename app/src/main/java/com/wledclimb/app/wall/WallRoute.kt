@@ -5,7 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wledclimb.app.LambdaViewModelFactory
-import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.network.HttpWledClient
 
 /**
  * Owns WallViewModel and wires it to WallScreen - the one place allowed to
@@ -18,7 +18,7 @@ fun WallRoute(wledBaseUrl: String, onChangeController: () -> Unit) {
     // (and WledClient) pointed at the new one, not the previous instance.
     val wallViewModel: WallViewModel = viewModel(
         key = wledBaseUrl,
-        factory = LambdaViewModelFactory { WallViewModel(WledClient(baseUrl = wledBaseUrl)) }
+        factory = LambdaViewModelFactory { WallViewModel(HttpWledClient(baseUrl = wledBaseUrl)) }
     )
     val wallState by wallViewModel.uiState.collectAsState()
     WallScreen(
