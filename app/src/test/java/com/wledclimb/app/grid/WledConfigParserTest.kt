@@ -29,7 +29,19 @@ class WledConfigParserTest {
     }
 
     @Test
+    fun `parses an empty panels array`() {
+        val rawConfigWithNoPanels = """{"hw":{"led":{"matrix":{"mpc":0,"panels":[]}}}}"""
+
+        assertEquals(emptyList<Panel>(), parsePanels(rawConfigWithNoPanels))
+    }
+
+    @Test
     fun `parses a gap array`() {
         assertEquals(listOf(1, 1, -1, 0, 1), parseGaps("[1,1,-1,0,1]"))
+    }
+
+    @Test
+    fun `parses an empty gap array`() {
+        assertEquals(emptyList<Int>(), parseGaps("[]"))
     }
 }

@@ -135,6 +135,64 @@ class WallMapperTest {
     }
 
     @Test
+    fun `rightStart on a vertical panel reverses which column is wired first`() {
+        // Same shape as "vertical panel without serpentine", but rightStart
+        // controls the *column* order here (not the row order, like it did
+        // for the horizontal case above) - vertical swaps which flag means what.
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 2, height = 3,
+            bottomStart = false, rightStart = true, vertical = true, serpentine = false
+        )
+
+        val wall = buildWall(listOf(panel))
+
+        // Column 1 (rightmost) is wired first now, top to bottom.
+        assertEquals(0, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 1, y = 1))
+        assertEquals(2, wall.ledIndexAt(x = 1, y = 2))
+
+        // Column 0 second.
+        assertEquals(3, wall.ledIndexAt(x = 0, y = 0))
+        assertEquals(4, wall.ledIndexAt(x = 0, y = 1))
+        assertEquals(5, wall.ledIndexAt(x = 0, y = 2))
+    }
+
+    @Test
+    fun `panels with unrelated wiring configs combine correctly`() {
+        // A plain horizontal panel next to a plain vertical one - confirms
+        // panels are processed independently, not just re-testing one flag
+        // combination copy-pasted across panels.
+        val horizontal = Panel(
+            xOffset = 0, yOffset = 0, width = 2, height = 1,
+            bottomStart = false, rightStart = false, vertical = false, serpentine = false
+        )
+        val vertical = Panel(
+            xOffset = 2, yOffset = 0, width = 1, height = 2,
+            bottomStart = false, rightStart = false, vertical = true, serpentine = false
+        )
+
+        val wall = buildWall(listOf(horizontal, vertical))
+
+        assertEquals(3, wall.width)
+        assertEquals(2, wall.height)
+        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
+        assertEquals(1, wall.ledIndexAt(x = 1, y = 0))
+        assertEquals(2, wall.ledIndexAt(x = 2, y = 0))
+        assertEquals(3, wall.ledIndexAt(x = 2, y = 1))
+        assertNull(wall.ledIndexAt(x = 0, y = 1))
+        assertNull(wall.ledIndexAt(x = 1, y = 1))
+    }
+
+    @Test
+    fun `no panels produces an empty wall`() {
+        val wall = buildWall(emptyList())
+
+        assertEquals(0, wall.width)
+        assertEquals(0, wall.height)
+        assertNull(wall.ledIndexAt(x = 0, y = 0))
+    }
+
+    @Test
     fun `cells not covered by any panel are empty`() {
         val panel = Panel(
             xOffset = 0, yOffset = 0, width = 1, height = 1,
