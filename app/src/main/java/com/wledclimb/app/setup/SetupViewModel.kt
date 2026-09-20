@@ -3,8 +3,12 @@ package com.wledclimb.app.setup
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wledclimb.app.grid.WledConfigException
+import com.wledclimb.app.grid.parsePanels
+import com.wledclimb.app.network.HttpWledClient
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.settings.WledSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,16 +17,20 @@ import kotlinx.coroutines.launch
 private const val TAG = "SetupViewModel"
 
 /**
- * Phase 1 setup screen: enter a WLED controller address, test it by pulling
- * `/json/cfg`, and save it for future launches. Later phases parse the raw
- * config into a real `Wall` model instead of just displaying it.
+ * The setup screen: enter a WLED controller address, check it really is a
+ * WLED wall, and save it for future launches.
  *
- * A single instance of this ViewModel is reused for the app's whole lifetime
- * (see MainActivity) rather than recreated per visit, so [reset] is called
- * each time the setup screen is (re-)entered instead of relying on a fresh
- * constructor call to establish the starting state.
+ * A single instance is reused for the app's whole lifetime (see SetupRoute),
+ * so [reset] is called each time the screen is (re-)entered rather than
+ * relying on a fresh constructor call to establish the starting state.
+ *
+ * [clientFactory] exists because the address isn't known until the user types
+ * it, so the client can't simply be constructed once and injected.
  */
-class SetupViewModel(private val settings: WledSettings) : ViewModel() {
+class SetupViewModel(
+    private val settings: WledSettings,
+    private val clientFactory: (baseUrl: String) -> WledClient = { HttpWledClient(baseUrl = it) }
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SetupUiState>(SetupUiState.Editing(ipInput = ""))
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
@@ -45,6 +53,8 @@ class SetupViewModel(private val settings: WledSettings) : ViewModel() {
 
     fun testAndSave() {
         val current = _uiState.value as? SetupUiState.Editing ?: return
+        if (current.testing) return
+
         val ip = current.ipInput.trim()
         if (ip.isEmpty()) {
             _uiState.value = current.copy(error = "Enter the controller's IP address or hostname")
@@ -55,10 +65,25 @@ class SetupViewModel(private val settings: WledSettings) : ViewModel() {
         viewModelScope.launch {
             val baseUrl = if (ip.startsWith("http://") || ip.startsWith("https://")) ip else "http://$ip"
             _uiState.value = try {
-                val rawConfig = WledClient(baseUrl = baseUrl).getConfig()
+                // Parsed, not just fetched: anything that answers with HTTP 200 would
+                // otherwise pass setup, and the user would only find out on the next
+                // screen - by which point they can no longer correct the address.
+                val rawConfig = clientFactory(baseUrl).getConfig()
                 Log.d(TAG, "WLED config for $baseUrl: $rawConfig")
+                val panels = parsePanels(rawConfig)
+                if (panels.isEmpty()) {
+                    throw WledConfigException("WLED is in 2D mode but has no panels configured.")
+                }
                 settings.saveWledIp(baseUrl)
                 SetupUiState.Connected(ip = baseUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: WledConfigException) {
+                Log.e(TAG, "testAndSave() reached $baseUrl, but its config is unusable", e)
+                SetupUiState.Editing(
+                    ipInput = ip,
+                    error = "Reached a device at $ip, but it isn't a WLED controller with a 2D matrix set up."
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "testAndSave() failed to reach WLED", e)
                 SetupUiState.Editing(

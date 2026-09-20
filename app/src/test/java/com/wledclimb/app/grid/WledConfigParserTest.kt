@@ -1,6 +1,8 @@
 package com.wledclimb.app.grid
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WledConfigParserTest {
@@ -43,5 +45,29 @@ class WledConfigParserTest {
     @Test
     fun `parses an empty gap array`() {
         assertEquals(emptyList<Int>(), parseGaps("[]"))
+    }
+
+    @Test
+    fun `a 1D WLED setup is reported as a config problem, not a parse crash`() {
+        // No "matrix" key at all - what a plain LED strip config looks like.
+        val oneDimensional = """{"hw":{"led":{"total":30}}}"""
+
+        val thrown = assertThrows(WledConfigException::class.java) { parsePanels(oneDimensional) }
+
+        assertTrue(thrown.message!!.contains("2D matrix"))
+    }
+
+    @Test
+    fun `a non-WLED response is reported as a config problem`() {
+        val notWled = "<html><body>Router login</body></html>"
+
+        assertThrows(WledConfigException::class.java) { parsePanels(notWled) }
+    }
+
+    @Test
+    fun `a malformed gap file is reported rather than silently ignored`() {
+        // Falling back to "no gaps" would render a plausible-looking grid with
+        // every LED index after the first gap quietly wrong.
+        assertThrows(WledConfigException::class.java) { parseGaps("""{"not":"an array"}""") }
     }
 }

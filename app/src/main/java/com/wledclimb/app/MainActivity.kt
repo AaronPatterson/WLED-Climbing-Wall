@@ -10,14 +10,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import com.wledclimb.app.settings.WledSettings
+import com.wledclimb.app.settings.DataStoreWledSettings
 import com.wledclimb.app.setup.SetupRoute
 import com.wledclimb.app.wall.WallRoute
 
 class MainActivity : ComponentActivity() {
 
     private val rootViewModel: RootViewModel by viewModels {
-        LambdaViewModelFactory { RootViewModel(WledSettings(applicationContext)) }
+        LambdaViewModelFactory { RootViewModel(DataStoreWledSettings(applicationContext)) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

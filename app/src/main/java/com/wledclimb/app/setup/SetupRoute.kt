@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wledclimb.app.LambdaViewModelFactory
-import com.wledclimb.app.settings.WledSettings
+import com.wledclimb.app.settings.DataStoreWledSettings
 import kotlinx.coroutines.flow.filterIsInstance
 
 /**
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 fun SetupRoute(currentUrl: String?, onSetupComplete: (String) -> Unit) {
     val context = LocalContext.current.applicationContext
     val setupViewModel: SetupViewModel = viewModel(
-        factory = LambdaViewModelFactory { SetupViewModel(WledSettings(context)) }
+        factory = LambdaViewModelFactory { SetupViewModel(DataStoreWledSettings(context)) }
     )
     // Runs once each time this screen is (re-)entered - e.g. after tapping
     // "Change controller". Resets first (clearing whatever was left over

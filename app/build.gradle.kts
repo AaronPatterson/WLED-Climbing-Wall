@@ -40,6 +40,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        // android.util.Log is a stub in local unit tests and throws "not mocked"
+        // by default - which would fail any test covering a code path that logs.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -71,4 +77,8 @@ dependencies {
     // Fake HTTP server so WledClient's request/response handling (headers,
     // status codes, timeouts) can be tested without a real WLED controller.
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    // Lets tests substitute Dispatchers.Main, without which anything using
+    // viewModelScope fails to run at all in a local JVM test. Version tracks
+    // the kotlinx-coroutines-core that Compose/lifecycle resolve to.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

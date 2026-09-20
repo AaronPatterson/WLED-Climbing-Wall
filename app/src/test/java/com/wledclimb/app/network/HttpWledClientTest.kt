@@ -13,7 +13,7 @@ import org.junit.Before
 import org.junit.Test
 import java.io.IOException
 
-class WledClientTest {
+class HttpWledClientTest {
 
     private lateinit var server: MockWebServer
 
@@ -28,7 +28,7 @@ class WledClientTest {
         server.shutdown()
     }
 
-    private fun client() = WledClient(baseUrl = server.url("").toString().trimEnd('/'))
+    private fun client() = HttpWledClient(baseUrl = server.url("").toString().trimEnd('/'))
 
     @Test
     fun `getOn parses the on field from a successful response`() = runBlocking {
