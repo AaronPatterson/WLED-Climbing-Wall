@@ -6,6 +6,7 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 - [`docs/requirements.md`](docs/requirements.md) — original feature brief and priorities (P0–P5), target user, constraints.
 - [`docs/design.md`](docs/design.md) — best practices for this project, architecture (Kotlin + Jetpack Compose, MVVM, WLED JSON API), screens, and the incremental build plan.
+- [`docs/kotlin-style.md`](docs/kotlin-style.md) — Kotlin coding conventions for this codebase: naming, state modeling, ViewModel/coroutine patterns, file organization.
 
 ## Status
 
