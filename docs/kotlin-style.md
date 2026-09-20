@@ -32,6 +32,11 @@ The rest of this doc is project-specific: patterns already established in this c
 - If a ViewModel's constructor takes arguments, wire it up with `LambdaViewModelFactory` (`LambdaViewModelFactory.kt`) rather than writing a one-off `ViewModelProvider.Factory` per class.
 - Don't hold onto a `Context` longer than the object needs it, and prefer `applicationContext` over an Activity context when a class stores one as a field (e.g. `WledSettings`).
 
+## Composables
+
+- Screen-level composables (`WallScreen`, `SetupScreen`) take plain state and event lambdas as parameters (`state: WallUiState, onToggle: () -> Unit`), never a ViewModel directly. This is "state hoisting": it keeps the composable previewable and testable without standing up a real ViewModel's dependencies (a `Context`, a `DataStore`, a network client), and its signature documents exactly what it can read and do instead of exposing the ViewModel's whole API.
+- The one place per screen that's allowed to depend on a ViewModel is its "Route" — currently the corresponding branch of the `when` in `MainActivity`'s `setContent { }` (e.g. the `RootUiState.NeedsSetup` branch for `SetupScreen`). That's where `viewModel()`/`viewModels()`, `collectAsState()`, and `LaunchedEffect` live; everything below it takes hoisted state and lambdas.
+
 ## Coroutines
 
 - Launch coroutines from `viewModelScope` — never a manually created `CoroutineScope` or `GlobalScope`. Ties the coroutine's lifetime to the ViewModel automatically.
