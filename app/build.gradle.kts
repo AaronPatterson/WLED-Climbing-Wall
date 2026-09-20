@@ -68,4 +68,7 @@ dependencies {
     // stub android.jar whose org.json methods throw "not mocked". This pulls
     // in a real implementation so tests that parse JSON actually work.
     testImplementation("org.json:json:20231013")
+    // Fake HTTP server so WledClient's request/response handling (headers,
+    // status codes, timeouts) can be tested without a real WLED controller.
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
