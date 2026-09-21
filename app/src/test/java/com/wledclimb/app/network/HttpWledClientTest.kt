@@ -132,4 +132,55 @@ class HttpWledClientTest {
 
         assertNull(client().getGaps())
     }
+
+    @Test
+    fun `setHoldColors blacks out the wall first, then lights the given holds`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"success":true}"""))
+
+        client().setHoldColors(ledCount = 144, lit = mapOf(5 to "FF0000", 9 to "00FF00"))
+
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/json/state", request.path)
+
+        val individual = JSONObject(request.body.readUtf8())
+            .getJSONObject("seg")
+            .getJSONArray("i")
+
+        // WLED reads this array in order, so the leading start/stop/colour
+        // triple has to clear everything before the per-hold pairs land.
+        assertEquals(0, individual.getInt(0))
+        assertEquals(144, individual.getInt(1))
+        assertEquals("000000", individual.getString(2))
+        assertEquals(5, individual.getInt(3))
+        assertEquals("FF0000", individual.getString(4))
+        assertEquals(9, individual.getInt(5))
+        assertEquals("00FF00", individual.getString(6))
+        assertEquals(7, individual.length())
+    }
+
+    @Test
+    fun `setHoldColors with nothing lit still clears the wall`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"success":true}"""))
+
+        client().setHoldColors(ledCount = 144, lit = emptyMap())
+
+        val individual = JSONObject(server.takeRequest().body.readUtf8())
+            .getJSONObject("seg")
+            .getJSONArray("i")
+        assertEquals(3, individual.length())
+        assertEquals("000000", individual.getString(2))
+    }
+
+    @Test
+    fun `setHoldColors throws on a non-2xx response`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        try {
+            client().setHoldColors(ledCount = 144, lit = mapOf(1 to "FF0000"))
+            fail("Expected an IOException")
+        } catch (e: IOException) {
+            assertTrue(e.message!!.contains("500"))
+        }
+    }
 }
