@@ -13,6 +13,19 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
+ * One OkHttpClient for the whole app. Each instance carries its own connection
+ * pool and thread pools, and a new client is otherwise built per WledClient -
+ * which meant a fresh pool on every "Test & save" tap and every controller
+ * switch. Sharing also means connections to the wall get reused.
+ */
+private val sharedHttpClient: OkHttpClient by lazy {
+    OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .build()
+}
+
+/**
  * [WledClient] over WLED's JSON HTTP API.
  *
  * Wraps three endpoints so far: GET/POST http://<ip>/json/state (wall on/off),
@@ -23,10 +36,7 @@ import java.util.concurrent.TimeUnit
  */
 class HttpWledClient(
     private val baseUrl: String,
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .build()
+    private val httpClient: OkHttpClient = sharedHttpClient
 ) : WledClient {
 
     private val jsonMediaType = "application/json".toMediaType()

@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.WledClimb" parent="android:Theme.Material.NoActionBar" />
+</resources>

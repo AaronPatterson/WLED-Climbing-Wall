@@ -1,3 +1,8 @@
 <resources>
+    <!--
+      Only styles the launch window (before Compose draws). The app's real
+      colours come from WledClimbTheme; values-night/ gives the launch window a
+      dark background so it doesn't flash white when the system is in dark mode.
+    -->
     <style name="Theme.WledClimb" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

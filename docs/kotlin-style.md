@@ -45,6 +45,14 @@ The rest of this doc is project-specific: patterns already established in this c
 - `HttpWledClient` is tested against MockWebServer (real HTTP, faked server); everything above it is tested against fakes (no sockets, no timing). Keep that split - integration-flavored tests at the boundary, fast deterministic tests everywhere else.
 - `testOptions { unitTests.isReturnDefaultValues = true }` is set because `android.util.Log` is stubbed in local unit tests and otherwise throws, failing any test covering a path that logs.
 
+## UI strings, theming and accessibility
+
+- **No user-facing text in Kotlin.** All copy lives in `strings.xml`, resolved with `stringResource()` in the composable.
+- **ViewModels expose typed problems, not message strings** (`WallProblem`, `SetupProblem`). A ViewModel has no `Context` to resolve resources with, so a state holding a `String` can't be localized - and tests then assert on wording rather than on what went wrong. The screen maps the type to copy.
+- **Colors come from the theme**, never hardcoded in a screen. Material slots (`MaterialTheme.colorScheme`) where one fits; `WallStatusColors` for the app's own semantic colors (on/off/hold), which have explicit dark-theme variants because the light greens and greys are unreadable on a dark surface.
+- **Dynamic color is deliberately not used**: the wall's colors carry meaning, and a palette that follows the user's wallpaper would work against that.
+- **Decorative elements get `clearAndSetSemantics {}`** and collections get one description for the whole thing (see `WallGrid`) - a screen reader announcing 144 identical cells is worse than useless.
+
 ## Coroutines
 
 - Launch coroutines from `viewModelScope` — never a manually created `CoroutineScope` or `GlobalScope`. Ties the coroutine's lifetime to the ViewModel automatically.

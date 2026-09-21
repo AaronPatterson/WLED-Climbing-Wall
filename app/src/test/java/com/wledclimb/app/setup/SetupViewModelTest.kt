@@ -7,7 +7,6 @@ import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
@@ -75,7 +74,7 @@ class SetupViewModelTest {
 
         viewModel.testAndSave()
 
-        assertEquals("Enter the controller's IP address or hostname", editingState(viewModel).error)
+        assertEquals(SetupProblem.EmptyAddress, editingState(viewModel).problem)
         assertEquals(emptyList<String>(), requestedBaseUrls)
         assertNull(settings.savedIp)
     }
@@ -88,8 +87,7 @@ class SetupViewModelTest {
 
         viewModel.testAndSave()
 
-        val error = editingState(viewModel).error!!
-        assertTrue(error.contains("Couldn't reach 192.168.1.99"))
+        assertEquals(SetupProblem.Unreachable("192.168.1.99"), editingState(viewModel).problem)
         assertNull(settings.savedIp)
     }
 
@@ -104,9 +102,7 @@ class SetupViewModelTest {
 
         viewModel.testAndSave()
 
-        val error = editingState(viewModel).error!!
-        assertTrue(error.contains("Reached a device at 192.168.1.1"))
-        assertTrue(error.contains("2D matrix"))
+        assertEquals(SetupProblem.NotAWledMatrix("192.168.1.1"), editingState(viewModel).problem)
         assertNull(settings.savedIp)
     }
 
@@ -118,7 +114,7 @@ class SetupViewModelTest {
 
         viewModel.testAndSave()
 
-        assertTrue(editingState(viewModel).error!!.contains("2D matrix"))
+        assertEquals(SetupProblem.NotAWledMatrix("192.168.1.50"), editingState(viewModel).problem)
         assertNull(settings.savedIp)
     }
 

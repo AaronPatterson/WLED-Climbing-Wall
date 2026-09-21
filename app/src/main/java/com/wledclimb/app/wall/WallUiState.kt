@@ -6,5 +6,5 @@ import com.wledclimb.app.grid.Wall
 sealed interface WallUiState {
     data object Connecting : WallUiState
     data class Connected(val on: Boolean, val wall: Wall, val busy: Boolean = false) : WallUiState
-    data class Error(val message: String) : WallUiState
+    data class Error(val problem: WallProblem) : WallUiState
 }

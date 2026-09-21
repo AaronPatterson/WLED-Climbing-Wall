@@ -5,7 +5,7 @@ sealed interface SetupUiState {
     data class Editing(
         val ipInput: String,
         val testing: Boolean = false,
-        val error: String? = null
+        val problem: SetupProblem? = null
     ) : SetupUiState
 
     /** Test succeeded and the address was saved; the caller should move on to wall control. */

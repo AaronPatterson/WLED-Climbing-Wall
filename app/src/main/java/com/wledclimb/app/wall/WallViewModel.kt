@@ -9,15 +9,14 @@ import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledClient
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private const val TAG = "WallViewModel"
-
-private const val UNREACHABLE_MESSAGE =
-    "Couldn't reach the WLED controller. Check that it's on and on the same Wi-Fi."
 
 /**
  * Connects to the WLED controller saved during setup: turns the whole wall
@@ -37,15 +36,24 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = WallUiState.Connecting
             _uiState.value = try {
-                val on = client.getOn()
-                val panels = parsePanels(client.getConfig())
-                val gaps = client.getGaps()?.let { parseGaps(it) }
-                WallUiState.Connected(on = on, wall = buildWall(panels, gaps))
+                // The three reads don't depend on each other, and run against a
+                // small controller over Wi-Fi - in sequence their connect timeouts
+                // stack up, so a dead controller took three timeouts to report.
+                coroutineScope {
+                    val on = async { client.getOn() }
+                    val config = async { client.getConfig() }
+                    val gaps = async { client.getGaps() }
+                    val wall = buildWall(
+                        panels = parsePanels(config.await()),
+                        gaps = gaps.await()?.let { parseGaps(it) }
+                    )
+                    WallUiState.Connected(on = on.await(), wall = wall)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "refresh() failed", e)
-                WallUiState.Error(messageFor(e))
+                WallUiState.Error(problemFor(e))
             }
         }
     }
@@ -62,7 +70,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "toggleWall() failed", e)
-                WallUiState.Error(messageFor(e))
+                WallUiState.Error(problemFor(e))
             }
         }
     }
@@ -70,9 +78,9 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
 
 /**
  * A controller that answered but isn't set up as a wall needs a different fix
- * from one that couldn't be reached, so the two don't share a message.
+ * from one that couldn't be reached at all.
  */
-private fun messageFor(e: Exception): String = when (e) {
-    is WledConfigException -> e.message ?: UNREACHABLE_MESSAGE
-    else -> UNREACHABLE_MESSAGE
+private fun problemFor(e: Exception): WallProblem = when (e) {
+    is WledConfigException -> WallProblem.NotAWledMatrix
+    else -> WallProblem.Unreachable
 }
