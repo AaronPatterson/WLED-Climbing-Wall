@@ -3,6 +3,7 @@ package com.wledclimb.app.wall
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -40,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -120,13 +123,34 @@ private fun ColumnScope.ConnectedContent(
             fontWeight = FontWeight.Bold
         )
     }
+    var scale by remember { mutableFloatStateOf(MIN_GRID_SCALE) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    var viewport by remember { mutableStateOf(Size.Zero) }
+
     WallGrid(
         wall = state.wall,
         litHolds = state.litHolds,
         onHoldTap = onHoldTap,
+        scale = scale,
+        pan = pan,
+        onTransform = { gesturePan, gestureZoom, gridSize ->
+            viewport = gridSize
+            scale = clampGridScale(scale * gestureZoom)
+            pan = clampGridPan(pan + gesturePan, scale, gridSize)
+        },
         modifier = Modifier
             .weight(1f, fill = false)
             .padding(top = 16.dp)
+    )
+    ZoomControls(
+        scale = scale,
+        onZoom = { factor ->
+            scale = clampGridScale(scale * factor)
+            // Zooming back out has to pull the grid back into view, or it
+            // would sit off-centre with empty space beside it.
+            pan = clampGridPan(pan, scale, viewport)
+        },
+        modifier = Modifier.padding(top = 8.dp)
     )
     ColorPalette(
         selected = state.selectedColor,
@@ -165,25 +189,30 @@ private fun ColumnScope.ErrorContent(problem: WallProblem, onRetry: () -> Unit) 
  * The wall's holds, sized so the whole wall is visible at once - reading a
  * route end to end matters more than per-cell precision.
  *
- * Pinch zooms in and dragging pans, which is what makes the wall usable on a
- * phone, where fitting 12 columns leaves cells well under the 48dp touch
- * minimum. Zoomed right out there's nothing to pan to, so dragging does
- * nothing and taps stay unambiguous.
+ * The grid owns every gesture itself, taps included. Per-cell `clickable`
+ * cannot be used here: children are dispatched pointer events before their
+ * parent, and detectTransformGestures abandons the gesture the moment any
+ * change is consumed, so clickable cells silently swallowed every pinch and
+ * drag. Cells keep an explicit semantics onClick so screen readers can still
+ * activate them.
  */
 @Composable
 private fun WallGrid(
     wall: Wall,
     litHolds: Map<Int, HoldColor>,
     onHoldTap: (segmentIndex: Int) -> Unit,
+    scale: Float,
+    pan: Offset,
+    onTransform: (pan: Offset, zoom: Float, viewport: Size) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val holdCount = wall.cells.sumOf { row -> row.count { it != null } }
-    val description = stringResource(R.string.wall_grid_description, holdCount, wall.width, wall.height)
+    val description =
+        stringResource(R.string.wall_grid_description, holdCount, wall.width, wall.height)
 
-    var scale by remember { mutableFloatStateOf(MIN_GRID_SCALE) }
-    var pan by remember { mutableStateOf(Offset.Zero) }
-
-    BoxWithConstraints(modifier) {
+    // Scaling through graphicsLayer doesn't change the layout size, so a
+    // zoomed grid would otherwise paint straight over the controls below it.
+    BoxWithConstraints(modifier.clipToBounds()) {
         // Fit whichever dimension runs out first: on a landscape tablet a
         // 12x12 wall is limited by height, on a phone by width. Fitting only
         // to width pushes the controls below the grid off the screen.
@@ -192,27 +221,37 @@ private fun WallGrid(
         } else {
             0.dp
         }
-        val viewport = with(LocalDensity.current) {
-            Size((cellSize * wall.width).toPx(), (cellSize * wall.height).toPx())
-        }
+        val cellPx = with(LocalDensity.current) { cellSize.toPx() }
+        val viewport = Size(cellPx * wall.width, cellPx * wall.height)
 
         Column(
             modifier = Modifier
                 .semantics { contentDescription = description }
-                // graphicsLayer rather than re-laying out at a new cell size:
-                // Compose maps pointer input back through the transform, so the
-                // holds stay tappable where they appear without any hit-test
-                // maths of our own.
+                // graphicsLayer rather than re-laying out at a larger cell
+                // size, so zooming doesn't re-measure every cell each frame.
+                // Pointer input sits inside the layer, so the offsets it
+                // reports are already in the grid's own coordinates.
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                     translationX = pan.x
                     translationY = pan.y
                 }
+                .pointerInput(cellPx, wall) {
+                    detectTapGestures { offset ->
+                        val x = (offset.x / cellPx).toInt()
+                        val y = (offset.y / cellPx).toInt()
+                        if (x in 0 until wall.width &&
+                            y in 0 until wall.height &&
+                            wall.hasHoldAt(x, y)
+                        ) {
+                            onHoldTap(wall.segmentIndexAt(x, y))
+                        }
+                    }
+                }
                 .pointerInput(viewport) {
                     detectTransformGestures { _, gesturePan, gestureZoom, _ ->
-                        scale = clampGridScale(scale * gestureZoom)
-                        pan = clampGridPan(pan + gesturePan, scale, viewport)
+                        onTransform(gesturePan, gestureZoom, viewport)
                     }
                 }
         ) {
@@ -238,8 +277,11 @@ private fun WallGrid(
 }
 
 /**
- * One cell. A gap (no LED behind it) takes up its space but isn't tappable -
+ * One cell. A gap (no LED behind it) takes up its space but isn't a control -
  * there's nothing there to light.
+ *
+ * Taps are handled by the grid, not here; the onClick below exists so screen
+ * readers still have something to activate.
  */
 @Composable
 private fun HoldCell(
@@ -279,12 +321,33 @@ private fun HoldCell(
                     // An empty cell isn't a control; don't announce it at all.
                     Modifier.clearAndSetSemantics { }
                 } else {
-                    Modifier
-                        .clickable { onTap(segmentIndex) }
-                        .semantics { contentDescription = holdDescription }
+                    Modifier.semantics {
+                        contentDescription = holdDescription
+                        onClick {
+                            onTap(segmentIndex)
+                            true
+                        }
+                    }
                 }
             )
     )
+}
+
+/** Steps zoom in and out, for anyone who would rather not pinch. */
+@Composable
+private fun ZoomControls(
+    scale: Float,
+    onZoom: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TextButton(onClick = { onZoom(1f / ZOOM_STEP) }, enabled = scale > MIN_GRID_SCALE) {
+            Text(text = stringResource(R.string.wall_zoom_out))
+        }
+        TextButton(onClick = { onZoom(ZOOM_STEP) }, enabled = scale < MAX_GRID_SCALE) {
+            Text(text = stringResource(R.string.wall_zoom_in))
+        }
+    }
 }
 
 /** The colours a hold can be painted in. Tapping one arms it for the next tap. */

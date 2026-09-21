@@ -31,6 +31,10 @@
     <string name="color_purple">Purple</string>
     <string name="color_selected">%1$s, selected</string>
 
+    <!-- Zoom -->
+    <string name="wall_zoom_in">Zoom in</string>
+    <string name="wall_zoom_out">Zoom out</string>
+
     <!-- Accessibility -->
     <string name="wall_loading_description">Loading</string>
     <string name="wall_grid_description">Wall layout: %1$d holds across a %2$d by %3$d grid</string>

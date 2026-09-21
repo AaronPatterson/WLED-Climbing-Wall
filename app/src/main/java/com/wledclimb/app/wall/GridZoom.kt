@@ -6,6 +6,9 @@ import androidx.compose.ui.geometry.Size
 /** Zoomed right out, the whole wall is visible and there's nothing to pan to. */
 const val MIN_GRID_SCALE = 1f
 
+/** How much one press of a zoom control changes the scale. */
+const val ZOOM_STEP = 1.5f
+
 /** Far enough in that a hold is a comfortable target even on a phone. */
 const val MAX_GRID_SCALE = 4f
 
