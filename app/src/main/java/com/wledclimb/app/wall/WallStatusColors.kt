@@ -1,4 +1,4 @@
-package com.wledclimb.app.theme
+package com.wledclimb.app.wall
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable

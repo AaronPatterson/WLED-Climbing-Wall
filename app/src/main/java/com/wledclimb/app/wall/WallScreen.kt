@@ -29,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.R
 import com.wledclimb.app.grid.Wall
-import com.wledclimb.app.theme.WallStatusColors
 
 @Composable
 fun WallScreen(
