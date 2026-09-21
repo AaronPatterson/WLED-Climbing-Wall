@@ -63,7 +63,7 @@ fun WallScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 16.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -367,41 +367,60 @@ private fun GridControls(
     }
 }
 
-/** The colours a hold can be painted in. Tapping one arms it for the next tap. */
+/**
+ * The colours a hold can be painted in. Tapping one arms it for the next tap.
+ *
+ * Swatches size themselves to the width available rather than taking a fixed
+ * size: six at 56dp don't fit across a phone, and a Row that runs out of room
+ * squashes the last swatch that fits and drops the rest off the edge entirely.
+ * They never grow past 56dp, and at phone width land on 48dp - the smallest a
+ * touch target should be, and these get tapped by six-year-olds.
+ */
 @Composable
 private fun ColorPalette(
     selected: HoldColor,
     onSelect: (HoldColor) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        for (color in HoldColor.entries) {
-            val isSelected = color == selected
-            val label = stringResource(color.labelRes)
-            val swatchDescription =
-                if (isSelected) stringResource(R.string.color_selected, label) else label
-            Box(
-                modifier = Modifier
-                    // Comfortably above the 48dp minimum: these get tapped by
-                    // six-year-olds.
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(color.displayColor)
-                    .border(
-                        width = if (isSelected) 4.dp else 1.dp,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.outlineVariant
-                        },
-                        shape = CircleShape
-                    )
-                    .clickable { onSelect(color) }
-                    .semantics { contentDescription = swatchDescription }
-            )
+    val colors = HoldColor.entries
+    val spacing = 8.dp
+
+    BoxWithConstraints(modifier) {
+        val swatchSize = minOf(
+            MAX_SWATCH_SIZE,
+            (maxWidth - spacing * (colors.size - 1)) / colors.size
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
+            for (color in colors) {
+                val isSelected = color == selected
+                val label = stringResource(color.labelRes)
+                val swatchDescription =
+                    if (isSelected) stringResource(R.string.color_selected, label) else label
+                Box(
+                    modifier = Modifier
+                        .size(swatchSize)
+                        .clip(CircleShape)
+                        .background(color.displayColor)
+                        .border(
+                            width = if (isSelected) 4.dp else 1.dp,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant
+                            },
+                            shape = CircleShape
+                        )
+                        .clickable { onSelect(color) }
+                        .semantics { contentDescription = swatchDescription }
+                )
+            }
         }
     }
 }
+
+/** Big enough to tap easily; past this they just look oversized on a tablet. */
+private val MAX_SWATCH_SIZE = 56.dp
 
 /** WLED's "RRGGBB" as an opaque Compose colour. */
 private val HoldColor.displayColor: Color
