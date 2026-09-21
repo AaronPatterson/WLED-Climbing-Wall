@@ -77,3 +77,18 @@ Each phase should end with something you can run on a device and see working, be
 | 9 | Route sharing (P5) | Upload/download routes to a shared server |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
+
+## WLED behaviour worth knowing
+
+Things that cost real debugging time, so they're written down rather than rediscovered.
+
+- **Two different pixel indices, and they are easy to confuse.** A hold has a position in the *grid* (`x + y * width`) and a position along the *physical strip* (the wiring order WLED's ledmap is built from). WLED's per-pixel `"i"` command addresses the **grid** one: it writes into the segment's 2D buffer (`setPixelColorXYRaw` → `pixels[x + y*vWidth()]`) and applies the ledmap itself when rendering. Sending the strip index instead lit a scattered, mirrored set of the wrong holds — on this wall the two are opposite corners, so it looked plausible but was wrong. `Wall.segmentIndexAt()` is the one to send; `Wall.ledIndexAt()` is the other.
+- **Switching the wall on wipes the route.** WLED unfreezes every segment when it powers on (`json.cpp`, "unfreeze all segments when turning on"), which drops the per-pixel route while the app still shows it. The app re-pushes the route after powering on.
+- **The first `"i"` command freezes the segment and clears it to black**; later ones don't re-clear. Effects and presets stop running while frozen, and `{"seg":{"frz":false}}` releases it.
+- **Push the whole route, not just what changed.** WLED keeps previously set pixels, so an incremental message leaves a hold lit after the app cleared it. One request carrying the full desired state (`[0, pixelCount, "000000", index, colour, …]`) is self-healing and no larger in practice.
+- **Realtime UDP (DDP/DRGB/WARLS) is deliberately not used.** It *would* address the raw strip, but it times out after 2.5s by default, gives no delivery confirmation, doesn't persist as WLED state, and can't be captured in a preset — which would block Phase 6.
+- **The gap file's `-1` and `0` mean different things.** `-1` is no LED at all; `0` is an LED that exists but is unused — and it still consumes a strip index, so treating them the same shifts every LED after it.
+
+## Open questions
+
+- **Phase 4:** the panel/serpentine algorithm in `WallMapper` is currently only used to work out *which* cells have holds — the wiring flags no longer affect anything sent to the wall, since per-pixel commands address grid positions. Re-evaluate when saved routes land: if nothing wants strip indices by then, it can collapse to a much simpler occupancy check (roughly 15 lines instead of ~60, dropping about 10 tests with it).
