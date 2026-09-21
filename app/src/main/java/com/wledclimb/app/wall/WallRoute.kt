@@ -24,6 +24,9 @@ fun WallRoute(wledBaseUrl: String, onChangeController: () -> Unit) {
     WallScreen(
         state = wallState,
         onToggle = wallViewModel::toggleWall,
+        onHoldTap = wallViewModel::toggleHold,
+        onColorSelect = wallViewModel::selectColor,
+        onClearWall = wallViewModel::clearWall,
         onRetry = wallViewModel::refresh,
         onChangeController = onChangeController
     )

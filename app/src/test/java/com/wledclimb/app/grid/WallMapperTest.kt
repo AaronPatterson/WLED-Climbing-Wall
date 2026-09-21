@@ -2,6 +2,7 @@ package com.wledclimb.app.grid
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WallMapperTest {
@@ -242,5 +243,40 @@ class WallMapperTest {
         assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
         assertEquals(1, wall.ledIndexAt(x = 1, y = 0))
         assertEquals(2, wall.ledIndexAt(x = 2, y = 0))
+    }
+
+    @Test
+    fun `segment index is the grid position, not the position along the strip`() {
+        // Regression guard. WLED's per-pixel "i" command writes into the
+        // segment's 2D buffer (x + y*width) and applies the ledmap itself when
+        // rendering - it does not address the LED's place in the wiring.
+        // Sending the wiring index lit a scattered set of the wrong holds on a
+        // real wall, because it was being read as a grid position.
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 6, height = 12,
+            bottomStart = true, rightStart = false, vertical = true, serpentine = true
+        )
+        val wall = buildWall(listOf(panel, panel.copy(xOffset = 6)))
+
+        assertEquals(11, wall.segmentIndexAt(x = 11, y = 0))
+        assertEquals(132, wall.segmentIndexAt(x = 0, y = 11))
+
+        // On this wall the two indices are each other's opposite corner, which
+        // is exactly why mixing them up mirrored the route.
+        assertEquals(132, wall.ledIndexAt(x = 11, y = 0))
+        assertEquals(11, wall.segmentIndexAt(x = 11, y = 0))
+    }
+
+    @Test
+    fun `hasHoldAt reports which cells can be lit`() {
+        val panel = Panel(
+            xOffset = 0, yOffset = 0, width = 3, height = 1,
+            bottomStart = false, rightStart = false, vertical = false, serpentine = false
+        )
+        val wall = buildWall(listOf(panel), gaps = listOf(1, -1, 1))
+
+        assertTrue(wall.hasHoldAt(x = 0, y = 0))
+        assertTrue(!wall.hasHoldAt(x = 1, y = 0))
+        assertEquals(3, wall.segmentSize)
     }
 }

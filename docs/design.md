@@ -75,5 +75,34 @@ Each phase should end with something you can run on a device and see working, be
 | 7 | Photo overlay (P2) | Capture/crop a wall photo, manual or auto hold detection, toggle via the photo |
 | 8 | Light modes (P2) | All Lights / Holds Only / No Holds Only toggle |
 | 9 | Route sharing (P5) | Upload/download routes to a shared server |
+| 10 | Version visibility | Show the build version in the app, so it's obvious which build is on which device |
+| 11 | Navigation polish | Colour palette in a tray at the bottom of the screen; zoom control made compact and out of the way |
+| 12 | Visual gap editor | Mark in the app which grid positions actually have holds, and upload the result to the controller — so moving holds around doesn't mean hand-editing a file |
+| 13 | Kid-friendly effects | A small curated set of WLED effects and palettes to experiment with, rather than mirroring WLED's own UI |
+| 14 | Brightness | A brightness control next to the on/off switch, so the wall can be dimmed for evening use without digging into WLED's own UI |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
+
+Notes on the later phases:
+
+- **Phase 10** is small — `BuildConfig.VERSION_NAME` surfaced somewhere unobtrusive. Worth doing early rather than in order, now that builds get sideloaded onto more than one device. It should also fix `versionName`, which still reads `0.1.0-phase0`.
+- **Phase 11** follows on from Phase 3, which put the palette and zoom controls wherever they fitted rather than where they belong.
+- **Phase 12** is already feasible: WLED's own 2D settings page uploads the gap file by POSTing it to `/upload` with the filename `/2d-gaps.json`, so no extra firmware support is needed. The app already knows how to *read* and interpret that file. Note the editor has to write `-1` for a position with no LED and `0` for one that has an LED which shouldn't be used — the two are not interchangeable (see above).
+- **Phase 13** should stay deliberately small. The point is a few big obvious buttons, not a second WLED front end.
+- **Phase 14** is a simplified WLED control like Phase 13, but it doesn't belong in the same screen. Brightness is an everyday adjustment — bright in daylight, dim in the evening — rather than something to experiment with, so it wants to sit beside the on/off switch where it's reachable in one tap. Technically it's one field, `{"bri": 0-255}` on `/json/state`: master brightness, not the per-segment `bri`. **The slider must not be allowed to reach 0** (see below).
+
+## WLED behaviour worth knowing
+
+Things that cost real debugging time, so they're written down rather than rediscovered.
+
+- **Two different pixel indices, and they are easy to confuse.** A hold has a position in the *grid* (`x + y * width`) and a position along the *physical strip* (the wiring order WLED's ledmap is built from). WLED's per-pixel `"i"` command addresses the **grid** one: it writes into the segment's 2D buffer (`setPixelColorXYRaw` → `pixels[x + y*vWidth()]`) and applies the ledmap itself when rendering. Sending the strip index instead lit a scattered, mirrored set of the wrong holds — on this wall the two are opposite corners, so it looked plausible but was wrong. `Wall.segmentIndexAt()` is the one to send; `Wall.ledIndexAt()` is the other.
+- **Switching the wall on wipes the route.** WLED unfreezes every segment when it powers on (`json.cpp`, "unfreeze all segments when turning on"), which drops the per-pixel route while the app still shows it. The app re-pushes the route after powering on.
+- **Brightness can wipe the route the same way powering on does.** The unfreeze guard is `if (bri && !onBefore)` — it keys on brightness crossing up from zero, *not* on the `"on"` field, so a slider dragged up from 0 drops the route exactly as switching the wall on does. And `bool on = root["on"] | (bri > 0)` means a `"bri"` sent without an `"on"` *derives* the power state, so `{"bri":0}` quietly switches the wall off. Floor the slider above zero so it never crosses that boundary; if it ever is allowed to reach 0, it needs the same re-push `toggleWall` does.
+- **The first `"i"` command freezes the segment and clears it to black**; later ones don't re-clear. Effects and presets stop running while frozen, and `{"seg":{"frz":false}}` releases it.
+- **Push the whole route, not just what changed.** WLED keeps previously set pixels, so an incremental message leaves a hold lit after the app cleared it. One request carrying the full desired state (`[0, pixelCount, "000000", index, colour, …]`) is self-healing and no larger in practice.
+- **Realtime UDP (DDP/DRGB/WARLS) is deliberately not used.** It *would* address the raw strip, but it times out after 2.5s by default, gives no delivery confirmation, doesn't persist as WLED state, and can't be captured in a preset — which would block Phase 6.
+- **The gap file's `-1` and `0` mean different things.** `-1` is no LED at all; `0` is an LED that exists but is unused — and it still consumes a strip index, so treating them the same shifts every LED after it.
+
+## Open questions
+
+- **Phase 4:** the panel/serpentine algorithm in `WallMapper` is currently only used to work out *which* cells have holds — the wiring flags no longer affect anything sent to the wall, since per-pixel commands address grid positions. Re-evaluate when saved routes land: if nothing wants strip indices by then, it can collapse to a much simpler occupancy check (roughly 15 lines instead of ~60, dropping about 10 tests with it).

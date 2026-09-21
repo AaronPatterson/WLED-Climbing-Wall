@@ -58,6 +58,72 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         }
     }
 
+    /** Picks the colour the next tapped hold will be painted in. */
+    fun selectColor(color: HoldColor) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        _uiState.value = current.copy(selectedColor = color)
+    }
+
+    /**
+     * Paints, repaints or clears one hold, then pushes the whole route.
+     *
+     * Tapping a hold that's already the selected colour turns it off, so the
+     * same gesture both paints and erases and there's no separate eraser mode
+     * to explain. Tapping one showing a different colour repaints it.
+     */
+    fun toggleHold(segmentIndex: Int) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+
+        val updated = current.litHolds.toMutableMap()
+        if (updated[segmentIndex] == current.selectedColor) {
+            updated.remove(segmentIndex)
+        } else {
+            updated[segmentIndex] = current.selectedColor
+        }
+        showAndPush(current, updated, "toggleHold($segmentIndex)")
+    }
+
+    /**
+     * Turns every hold off, to start a fresh route.
+     *
+     * Without this, clearing a route means tapping each lit hold in turn - one
+     * request per hold, and a lot of tapping for anything but a short route.
+     */
+    fun clearWall() {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        if (current.litHolds.isEmpty()) return
+
+        showAndPush(current, emptyMap(), "clearWall()")
+    }
+
+    /**
+     * Shows [holds] straight away and pushes them to the wall in the background.
+     *
+     * The grid updates before the request completes: on a local network the
+     * round trip is short, but waiting for it would make every tap feel
+     * sticky. A failed push falls back to the error state, same as a failed
+     * on/off toggle, rather than silently leaving the app and the wall
+     * showing different things.
+     */
+    private fun showAndPush(
+        current: WallUiState.Connected,
+        holds: Map<Int, HoldColor>,
+        description: String
+    ) {
+        _uiState.value = current.copy(litHolds = holds)
+
+        viewModelScope.launch {
+            try {
+                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = holds.toHex())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "$description failed", e)
+                _uiState.value = WallUiState.Error(problemFor(e))
+            }
+        }
+    }
+
     fun toggleWall() {
         val current = _uiState.value as? WallUiState.Connected ?: return
         if (current.busy) return
@@ -65,7 +131,16 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
 
         viewModelScope.launch {
             _uiState.value = try {
-                WallUiState.Connected(on = client.setOn(on = !current.on), wall = current.wall)
+                val on = client.setOn(on = !current.on)
+                // WLED unfreezes every segment when it's switched on (see the
+                // "unfreeze all segments when turning on" branch in json.cpp),
+                // which drops the per-pixel route from the wall while the app
+                // still shows it. Push the route again so the two agree.
+                if (on && current.litHolds.isNotEmpty()) {
+                    client.setHoldColors(pixelCount = current.wall.segmentSize, lit = current.litHolds.toHex())
+                }
+                // copy() rather than a fresh Connected, so the route stays put.
+                current.copy(on = on, busy = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -80,6 +155,9 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
  * A controller that answered but isn't set up as a wall needs a different fix
  * from one that couldn't be reached at all.
  */
+/** The wire format WLED wants, from the colours the UI works in. */
+private fun Map<Int, HoldColor>.toHex(): Map<Int, String> = mapValues { it.value.hex }
+
 private fun problemFor(e: Exception): WallProblem = when (e) {
     is WledConfigException -> WallProblem.NotAWledMatrix
     else -> WallProblem.Unreachable

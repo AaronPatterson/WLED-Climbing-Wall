@@ -7,10 +7,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+
+/** WLED treats a black pixel as off; there is no separate "off" value. */
+private const val OFF_COLOR = "000000"
 
 /**
  * One OkHttpClient for the whole app. Each instance carries its own connection
@@ -92,6 +96,36 @@ class HttpWledClient(
             response.body?.string()
         }
     }
+
+    override suspend fun setHoldColors(pixelCount: Int, lit: Map<Int, String>) =
+        withContext(Dispatchers.IO) {
+            // WLED walks the "i" array in order, so a start/stop/colour triple
+            // blacks out the whole wall first and each index/colour pair after
+            // it lights one hold. One request, and the result doesn't depend on
+            // what was already showing.
+            val individualLeds = JSONArray().apply {
+                put(0)
+                put(pixelCount)
+                put(OFF_COLOR)
+                lit.forEach { (segmentIndex, color) ->
+                    put(segmentIndex)
+                    put(color)
+                }
+            }
+            val payload = JSONObject()
+                .put("seg", JSONObject().put("i", individualLeds))
+                .toString()
+            val request = Request.Builder()
+                .url("$baseUrl/json/state")
+                .post(payload.toRequestBody(jsonMediaType))
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
+                }
+            }
+        }
 
     private fun parseOn(response: Response): Boolean {
         if (!response.isSuccessful) {
