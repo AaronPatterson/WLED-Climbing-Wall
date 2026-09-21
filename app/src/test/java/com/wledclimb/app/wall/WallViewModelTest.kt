@@ -99,4 +99,102 @@ class WallViewModelTest {
 
         assertTrue(viewModel.uiState.value is WallUiState.Connected)
     }
+
+    @Test
+    fun `tapping a hold lights it and pushes the route`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+
+        viewModel.toggleHold(ledIndex = 2)
+
+        assertEquals(mapOf(2 to "FF0000"), connectedState(viewModel).litHolds)
+        assertEquals(listOf(mapOf(2 to "FF0000")), client.pushedHolds)
+        // The clear range has to cover every LED, or holds outside it stay lit.
+        assertEquals(4, client.lastLedCount)
+    }
+
+    @Test
+    fun `tapping a lit hold clears it`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+        viewModel.toggleHold(ledIndex = 2)
+
+        viewModel.toggleHold(ledIndex = 2)
+
+        assertEquals(emptyMap<Int, String>(), connectedState(viewModel).litHolds)
+        assertEquals(emptyMap<Int, String>(), client.pushedHolds.last())
+    }
+
+    @Test
+    fun `each push carries the whole route, not just the hold that changed`() = runTest {
+        // WLED keeps previously set pixels, so an incremental push would leave
+        // a cleared hold lit on the wall.
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+
+        viewModel.toggleHold(ledIndex = 0)
+        viewModel.toggleHold(ledIndex = 3)
+
+        assertEquals(mapOf(0 to "FF0000", 3 to "FF0000"), client.pushedHolds.last())
+    }
+
+    @Test
+    fun `powering the wall off keeps the route in the app`() = runTest {
+        val viewModel = WallViewModel(FakeWledClient(on = true))
+        viewModel.toggleHold(ledIndex = 1)
+
+        viewModel.toggleWall()
+
+        val state = connectedState(viewModel)
+        assertEquals(false, state.on)
+        assertEquals(mapOf(1 to "FF0000"), state.litHolds)
+    }
+
+    @Test
+    fun `switching the wall back on re-pushes the route`() = runTest {
+        // WLED unfreezes every segment when it's switched on, dropping the
+        // per-pixel route - without re-pushing, the app would still show a
+        // route the wall had already forgotten.
+        val client = FakeWledClient(on = false)
+        val viewModel = WallViewModel(client)
+        viewModel.toggleHold(ledIndex = 1)
+        val pushesBefore = client.pushedHolds.size
+
+        viewModel.toggleWall()
+
+        assertEquals(true, connectedState(viewModel).on)
+        assertEquals(pushesBefore + 1, client.pushedHolds.size)
+        assertEquals(mapOf(1 to "FF0000"), client.pushedHolds.last())
+    }
+
+    @Test
+    fun `switching the wall on with no route pushes nothing`() = runTest {
+        val client = FakeWledClient(on = false)
+        val viewModel = WallViewModel(client)
+
+        viewModel.toggleWall()
+
+        assertEquals(emptyList<Map<Int, String>>(), client.pushedHolds)
+    }
+
+    @Test
+    fun `a failed push surfaces the error rather than leaving the wall out of sync`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+        client.failWith = IOException("gone")
+
+        viewModel.toggleHold(ledIndex = 1)
+
+        assertEquals(WallUiState.Error(WallProblem.Unreachable), viewModel.uiState.value)
+    }
+
+    @Test
+    fun `tapping a hold does nothing when not connected`() = runTest {
+        val client = FakeWledClient(failWith = IOException("down"))
+        val viewModel = WallViewModel(client)
+
+        viewModel.toggleHold(ledIndex = 1)
+
+        assertEquals(emptyList<Map<Int, String>>(), client.pushedHolds)
+    }
 }

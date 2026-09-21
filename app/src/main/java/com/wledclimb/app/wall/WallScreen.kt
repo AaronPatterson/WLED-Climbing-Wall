@@ -1,8 +1,10 @@
 package com.wledclimb.app.wall
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -21,12 +23,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.R
 import com.wledclimb.app.grid.Wall
@@ -35,6 +39,7 @@ import com.wledclimb.app.grid.Wall
 fun WallScreen(
     state: WallUiState,
     onToggle: () -> Unit,
+    onHoldTap: (ledIndex: Int) -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
@@ -47,7 +52,11 @@ fun WallScreen(
     ) {
         when (state) {
             is WallUiState.Connecting -> ConnectingContent()
-            is WallUiState.Connected -> ConnectedContent(state = state, onToggle = onToggle)
+            is WallUiState.Connected -> ConnectedContent(
+                state = state,
+                onToggle = onToggle,
+                onHoldTap = onHoldTap
+            )
             is WallUiState.Error -> ErrorContent(problem = state.problem, onRetry = onRetry)
         }
         // Outside the when: reachable from every state, including when the
@@ -68,7 +77,11 @@ private fun ColumnScope.ConnectingContent() {
 }
 
 @Composable
-private fun ColumnScope.ConnectedContent(state: WallUiState.Connected, onToggle: () -> Unit) {
+private fun ColumnScope.ConnectedContent(
+    state: WallUiState.Connected,
+    onToggle: () -> Unit,
+    onHoldTap: (ledIndex: Int) -> Unit
+) {
     val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
     val statusText = stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
 
@@ -92,7 +105,14 @@ private fun ColumnScope.ConnectedContent(state: WallUiState.Connected, onToggle:
             fontWeight = FontWeight.Bold
         )
     }
-    WallGrid(wall = state.wall, modifier = Modifier.padding(top = 16.dp))
+    WallGrid(
+        wall = state.wall,
+        litHolds = state.litHolds,
+        onHoldTap = onHoldTap,
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .padding(top = 16.dp)
+    )
     Button(
         onClick = onToggle,
         enabled = !state.busy,
@@ -122,37 +142,78 @@ private fun ColumnScope.ErrorContent(problem: WallProblem, onRetry: () -> Unit) 
 }
 
 /**
- * Read-only preview of the wall's LED grid: a filled square for each cell a
- * panel covers, blank for gaps. Phase 3 makes this interactive (tap to light
- * a hold); for now it's just confirmation the grid layout came through.
+ * The wall's holds, sized so the whole wall is visible at once - reading a
+ * route end to end matters more than per-cell precision, and on a phone that
+ * can put cells below the 48dp touch minimum, which is what zoom (still to
+ * come) is for.
  */
 @Composable
-private fun WallGrid(wall: Wall, modifier: Modifier = Modifier) {
-    val cellColor = WallStatusColors.gridCell
-    // Individual cells mean nothing to a screen reader and there can be
-    // hundreds, so the grid is described once as a whole instead.
-    val description = stringResource(
-        R.string.wall_grid_description,
-        wall.cells.sumOf { row -> row.count { it != null } },
-        wall.width,
-        wall.height
-    )
+private fun WallGrid(
+    wall: Wall,
+    litHolds: Map<Int, String>,
+    onHoldTap: (ledIndex: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val holdCount = wall.cells.sumOf { row -> row.count { it != null } }
+    val description = stringResource(R.string.wall_grid_description, holdCount, wall.width, wall.height)
 
-    Column(modifier = modifier.semantics { contentDescription = description }) {
-        for (row in wall.cells) {
-            Row {
-                for (cell in row) {
-                    Box(
-                        modifier = Modifier
-                            .padding(1.dp)
-                            .size(16.dp)
-                            .background(
-                                color = if (cell != null) cellColor else Color.Transparent,
-                                shape = RoundedCornerShape(2.dp)
-                            )
-                    )
+    BoxWithConstraints(modifier) {
+        // Fit whichever dimension runs out first: on a landscape tablet a
+        // 12x12 wall is limited by height, on a phone by width. Fitting only
+        // to width pushes the controls below the grid off the screen.
+        val cellSize = if (wall.width > 0 && wall.height > 0) {
+            minOf(maxWidth / wall.width, maxHeight / wall.height)
+        } else {
+            0.dp
+        }
+
+        Column(modifier = Modifier.semantics { contentDescription = description }) {
+            for (row in wall.cells) {
+                Row {
+                    for (ledIndex in row) {
+                        HoldCell(
+                            ledIndex = ledIndex,
+                            color = ledIndex?.let { litHolds[it] },
+                            size = cellSize,
+                            onTap = onHoldTap
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * One cell. A gap (no LED behind it) takes up its space but isn't tappable -
+ * there's nothing there to light.
+ */
+@Composable
+private fun HoldCell(
+    ledIndex: Int?,
+    color: String?,
+    size: Dp,
+    onTap: (ledIndex: Int) -> Unit
+) {
+    val unlitColor = WallStatusColors.gridCell
+    Box(
+        modifier = Modifier
+            .size(size)
+            .padding(1.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(
+                when {
+                    ledIndex == null -> Color.Transparent
+                    color != null -> hexToColor(color)
+                    else -> unlitColor
+                }
+            )
+            .then(
+                if (ledIndex == null) Modifier
+                else Modifier.clickable { onTap(ledIndex) }
+            )
+    )
+}
+
+/** "RRGGBB" as WLED writes it, with full opacity added. */
+private fun hexToColor(hex: String): Color = Color(hex.toLong(16) or 0xFF000000L)

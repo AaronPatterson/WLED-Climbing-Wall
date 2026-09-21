@@ -12,4 +12,13 @@ data class Wall(
     val cells: List<List<Int?>>
 ) {
     fun ledIndexAt(x: Int, y: Int): Int? = cells.getOrNull(y)?.getOrNull(x)
+
+    /**
+     * One past the highest LED index in the grid - the range that covers every
+     * hold, which is what a "clear the whole wall" command needs. Derived, so
+     * it deliberately doesn't take part in equals/hashCode.
+     */
+    val ledCount: Int by lazy {
+        cells.flatten().filterNotNull().maxOrNull()?.plus(1) ?: 0
+    }
 }
