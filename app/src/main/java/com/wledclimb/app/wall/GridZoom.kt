@@ -25,6 +25,17 @@ fun maxGridPan(scale: Float, viewport: Size): Offset {
     )
 }
 
+/**
+ * Converts a drag into the translation that moves the grid the same distance
+ * on screen.
+ *
+ * Gestures are measured inside the zoom transform, in the grid's own
+ * coordinates, while the translation is applied outside it in screen
+ * coordinates. Without scaling the delta, a drag moves the wall by a fraction
+ * of the distance the finger travelled - a quarter of it at maximum zoom.
+ */
+fun gridPanDelta(gesturePan: Offset, scale: Float): Offset = gesturePan * scale
+
 /** Keeps a pan offset within [maxGridPan], so the wall can't be dragged away. */
 fun clampGridPan(offset: Offset, scale: Float, viewport: Size): Offset {
     val max = maxGridPan(scale, viewport)

@@ -139,7 +139,7 @@ private fun ColumnScope.ConnectedContent(
         onTransform = { gesturePan, gestureZoom, gridSize ->
             viewport = gridSize
             scale = clampGridScale(scale * gestureZoom)
-            pan = clampGridPan(pan + gesturePan, scale, gridSize)
+            pan = clampGridPan(pan + gridPanDelta(gesturePan, scale), scale, gridSize)
         },
         modifier = Modifier
             .weight(1f, fill = false)

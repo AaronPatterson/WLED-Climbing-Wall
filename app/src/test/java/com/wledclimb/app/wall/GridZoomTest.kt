@@ -42,4 +42,19 @@ class GridZoomTest {
         assertEquals(MAX_GRID_SCALE, clampGridScale(50f))
         assertEquals(2.5f, clampGridScale(2.5f))
     }
+
+    @Test
+    fun `a drag moves the grid as far as the finger travelled`() {
+        // Gestures are measured inside the zoom transform but the translation
+        // is applied outside it, so the delta has to be scaled up. Without
+        // this, dragging at 4x moved the wall a quarter of the expected
+        // distance and panning across it took a handful of swipes.
+        assertEquals(Offset(200f, 100f), gridPanDelta(Offset(100f, 50f), scale = 2f))
+        assertEquals(Offset(400f, 200f), gridPanDelta(Offset(100f, 50f), scale = 4f))
+    }
+
+    @Test
+    fun `at minimum zoom a drag is unchanged`() {
+        assertEquals(Offset(100f, 50f), gridPanDelta(Offset(100f, 50f), scale = MIN_GRID_SCALE))
+    }
 }
