@@ -74,22 +74,22 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
      * on/off toggle, rather than silently leaving the app and the wall
      * showing different things.
      */
-    fun toggleHold(ledIndex: Int) {
+    fun toggleHold(segmentIndex: Int) {
         val current = _uiState.value as? WallUiState.Connected ?: return
 
         val updated = current.litHolds.toMutableMap()
-        if (updated.remove(ledIndex) == null) {
-            updated[ledIndex] = HOLD_COLOR
+        if (updated.remove(segmentIndex) == null) {
+            updated[segmentIndex] = HOLD_COLOR
         }
         _uiState.value = current.copy(litHolds = updated)
 
         viewModelScope.launch {
             try {
-                client.setHoldColors(ledCount = current.wall.ledCount, lit = updated)
+                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = updated)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "toggleHold($ledIndex) failed", e)
+                Log.e(TAG, "toggleHold($segmentIndex) failed", e)
                 _uiState.value = WallUiState.Error(problemFor(e))
             }
         }
@@ -108,7 +108,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                 // which drops the per-pixel route from the wall while the app
                 // still shows it. Push the route again so the two agree.
                 if (on && current.litHolds.isNotEmpty()) {
-                    client.setHoldColors(ledCount = current.wall.ledCount, lit = current.litHolds)
+                    client.setHoldColors(pixelCount = current.wall.segmentSize, lit = current.litHolds)
                 }
                 // copy() rather than a fresh Connected, so the route stays put.
                 current.copy(on = on, busy = false)

@@ -7,8 +7,10 @@ sealed interface WallUiState {
     data object Connecting : WallUiState
 
     /**
-     * [litHolds] maps an LED index to the `RRGGBB` colour it's showing; holds
-     * absent from it are off. This is the route currently on the wall.
+     * [litHolds] maps a grid position (`Wall.segmentIndexAt`) to the `RRGGBB`
+     * colour it's showing; holds absent from it are off. This is the route
+     * currently on the wall. Keyed by grid position, not by position along the
+     * LED strip - that's what WLED's per-pixel commands address.
      */
     data class Connected(
         val on: Boolean,

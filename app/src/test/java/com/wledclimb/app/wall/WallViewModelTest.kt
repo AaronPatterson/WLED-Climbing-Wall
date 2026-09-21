@@ -105,21 +105,22 @@ class WallViewModelTest {
         val client = FakeWledClient()
         val viewModel = WallViewModel(client)
 
-        viewModel.toggleHold(ledIndex = 2)
+        viewModel.toggleHold(segmentIndex = 2)
 
         assertEquals(mapOf(2 to "FF0000"), connectedState(viewModel).litHolds)
         assertEquals(listOf(mapOf(2 to "FF0000")), client.pushedHolds)
-        // The clear range has to cover every LED, or holds outside it stay lit.
-        assertEquals(4, client.lastLedCount)
+        // The clear range has to cover the whole 2x2 segment buffer, or holds
+        // outside it stay lit.
+        assertEquals(4, client.lastPixelCount)
     }
 
     @Test
     fun `tapping a lit hold clears it`() = runTest {
         val client = FakeWledClient()
         val viewModel = WallViewModel(client)
-        viewModel.toggleHold(ledIndex = 2)
+        viewModel.toggleHold(segmentIndex = 2)
 
-        viewModel.toggleHold(ledIndex = 2)
+        viewModel.toggleHold(segmentIndex = 2)
 
         assertEquals(emptyMap<Int, String>(), connectedState(viewModel).litHolds)
         assertEquals(emptyMap<Int, String>(), client.pushedHolds.last())
@@ -132,8 +133,8 @@ class WallViewModelTest {
         val client = FakeWledClient()
         val viewModel = WallViewModel(client)
 
-        viewModel.toggleHold(ledIndex = 0)
-        viewModel.toggleHold(ledIndex = 3)
+        viewModel.toggleHold(segmentIndex = 0)
+        viewModel.toggleHold(segmentIndex = 3)
 
         assertEquals(mapOf(0 to "FF0000", 3 to "FF0000"), client.pushedHolds.last())
     }
@@ -141,7 +142,7 @@ class WallViewModelTest {
     @Test
     fun `powering the wall off keeps the route in the app`() = runTest {
         val viewModel = WallViewModel(FakeWledClient(on = true))
-        viewModel.toggleHold(ledIndex = 1)
+        viewModel.toggleHold(segmentIndex = 1)
 
         viewModel.toggleWall()
 
@@ -157,7 +158,7 @@ class WallViewModelTest {
         // route the wall had already forgotten.
         val client = FakeWledClient(on = false)
         val viewModel = WallViewModel(client)
-        viewModel.toggleHold(ledIndex = 1)
+        viewModel.toggleHold(segmentIndex = 1)
         val pushesBefore = client.pushedHolds.size
 
         viewModel.toggleWall()
@@ -183,7 +184,7 @@ class WallViewModelTest {
         val viewModel = WallViewModel(client)
         client.failWith = IOException("gone")
 
-        viewModel.toggleHold(ledIndex = 1)
+        viewModel.toggleHold(segmentIndex = 1)
 
         assertEquals(WallUiState.Error(WallProblem.Unreachable), viewModel.uiState.value)
     }
@@ -193,7 +194,7 @@ class WallViewModelTest {
         val client = FakeWledClient(failWith = IOException("down"))
         val viewModel = WallViewModel(client)
 
-        viewModel.toggleHold(ledIndex = 1)
+        viewModel.toggleHold(segmentIndex = 1)
 
         assertEquals(emptyList<Map<Int, String>>(), client.pushedHolds)
     }

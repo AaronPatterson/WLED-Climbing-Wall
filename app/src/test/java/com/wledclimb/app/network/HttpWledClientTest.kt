@@ -137,7 +137,7 @@ class HttpWledClientTest {
     fun `setHoldColors blacks out the wall first, then lights the given holds`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"success":true}"""))
 
-        client().setHoldColors(ledCount = 144, lit = mapOf(5 to "FF0000", 9 to "00FF00"))
+        client().setHoldColors(pixelCount = 144, lit = mapOf(5 to "FF0000", 9 to "00FF00"))
 
         val request = server.takeRequest()
         assertEquals("POST", request.method)
@@ -163,7 +163,7 @@ class HttpWledClientTest {
     fun `setHoldColors with nothing lit still clears the wall`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"success":true}"""))
 
-        client().setHoldColors(ledCount = 144, lit = emptyMap())
+        client().setHoldColors(pixelCount = 144, lit = emptyMap())
 
         val individual = JSONObject(server.takeRequest().body.readUtf8())
             .getJSONObject("seg")
@@ -177,7 +177,7 @@ class HttpWledClientTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
         try {
-            client().setHoldColors(ledCount = 144, lit = mapOf(1 to "FF0000"))
+            client().setHoldColors(pixelCount = 144, lit = mapOf(1 to "FF0000"))
             fail("Expected an IOException")
         } catch (e: IOException) {
             assertTrue(e.message!!.contains("500"))

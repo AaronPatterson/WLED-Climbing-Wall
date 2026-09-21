@@ -53,12 +53,12 @@ class FakeWledClient(
 
     /** Every wall state pushed, oldest first. */
     val pushedHolds = mutableListOf<Map<Int, String>>()
-    var lastLedCount: Int? = null
+    var lastPixelCount: Int? = null
         private set
 
-    override suspend fun setHoldColors(ledCount: Int, lit: Map<Int, String>) {
+    override suspend fun setHoldColors(pixelCount: Int, lit: Map<Int, String>) {
         failWith?.let { throw it }
-        lastLedCount = ledCount
+        lastPixelCount = pixelCount
         pushedHolds += lit
     }
 }

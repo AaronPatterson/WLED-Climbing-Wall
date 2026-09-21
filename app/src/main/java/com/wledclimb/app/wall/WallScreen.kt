@@ -39,7 +39,7 @@ import com.wledclimb.app.grid.Wall
 fun WallScreen(
     state: WallUiState,
     onToggle: () -> Unit,
-    onHoldTap: (ledIndex: Int) -> Unit,
+    onHoldTap: (segmentIndex: Int) -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
@@ -80,7 +80,7 @@ private fun ColumnScope.ConnectingContent() {
 private fun ColumnScope.ConnectedContent(
     state: WallUiState.Connected,
     onToggle: () -> Unit,
-    onHoldTap: (ledIndex: Int) -> Unit
+    onHoldTap: (segmentIndex: Int) -> Unit
 ) {
     val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
     val statusText = stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
@@ -151,7 +151,7 @@ private fun ColumnScope.ErrorContent(problem: WallProblem, onRetry: () -> Unit) 
 private fun WallGrid(
     wall: Wall,
     litHolds: Map<Int, String>,
-    onHoldTap: (ledIndex: Int) -> Unit,
+    onHoldTap: (segmentIndex: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val holdCount = wall.cells.sumOf { row -> row.count { it != null } }
@@ -168,12 +168,15 @@ private fun WallGrid(
         }
 
         Column(modifier = Modifier.semantics { contentDescription = description }) {
-            for (row in wall.cells) {
+            for (y in 0 until wall.height) {
                 Row {
-                    for (ledIndex in row) {
+                    for (x in 0 until wall.width) {
+                        // Grid position, not position along the strip: this is
+                        // what WLED's per-pixel commands address.
+                        val segmentIndex = wall.segmentIndexAt(x, y)
                         HoldCell(
-                            ledIndex = ledIndex,
-                            color = ledIndex?.let { litHolds[it] },
+                            segmentIndex = if (wall.hasHoldAt(x, y)) segmentIndex else null,
+                            color = litHolds[segmentIndex],
                             size = cellSize,
                             onTap = onHoldTap
                         )
@@ -190,10 +193,10 @@ private fun WallGrid(
  */
 @Composable
 private fun HoldCell(
-    ledIndex: Int?,
+    segmentIndex: Int?,
     color: String?,
     size: Dp,
-    onTap: (ledIndex: Int) -> Unit
+    onTap: (segmentIndex: Int) -> Unit
 ) {
     val unlitColor = WallStatusColors.gridCell
     Box(
@@ -203,14 +206,14 @@ private fun HoldCell(
             .clip(RoundedCornerShape(2.dp))
             .background(
                 when {
-                    ledIndex == null -> Color.Transparent
+                    segmentIndex == null -> Color.Transparent
                     color != null -> hexToColor(color)
                     else -> unlitColor
                 }
             )
             .then(
-                if (ledIndex == null) Modifier
-                else Modifier.clickable { onTap(ledIndex) }
+                if (segmentIndex == null) Modifier
+                else Modifier.clickable { onTap(segmentIndex) }
             )
     )
 }

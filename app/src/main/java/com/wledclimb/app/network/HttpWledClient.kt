@@ -97,7 +97,7 @@ class HttpWledClient(
         }
     }
 
-    override suspend fun setHoldColors(ledCount: Int, lit: Map<Int, String>) =
+    override suspend fun setHoldColors(pixelCount: Int, lit: Map<Int, String>) =
         withContext(Dispatchers.IO) {
             // WLED walks the "i" array in order, so a start/stop/colour triple
             // blacks out the whole wall first and each index/colour pair after
@@ -105,10 +105,10 @@ class HttpWledClient(
             // what was already showing.
             val individualLeds = JSONArray().apply {
                 put(0)
-                put(ledCount)
+                put(pixelCount)
                 put(OFF_COLOR)
-                lit.forEach { (ledIndex, color) ->
-                    put(ledIndex)
+                lit.forEach { (segmentIndex, color) ->
+                    put(segmentIndex)
                     put(color)
                 }
             }
