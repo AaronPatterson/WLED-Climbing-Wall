@@ -249,4 +249,42 @@ class WallViewModelTest {
         assertEquals(mapOf(1 to HoldColor.Red), connectedState(viewModel).litHolds)
         assertEquals(pushesBefore, client.pushedHolds.size)
     }
+
+    @Test
+    fun `clearing turns every hold off in one push`() = runTest {
+        // The point of this over tapping each hold: one request, not one per hold.
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+        viewModel.toggleHold(segmentIndex = 0)
+        viewModel.toggleHold(segmentIndex = 3)
+        val pushesBefore = client.pushedHolds.size
+
+        viewModel.clearWall()
+
+        assertEquals(emptyMap<Int, HoldColor>(), connectedState(viewModel).litHolds)
+        assertEquals(pushesBefore + 1, client.pushedHolds.size)
+        assertEquals(emptyMap<Int, String>(), client.pushedHolds.last())
+    }
+
+    @Test
+    fun `clearing an already empty wall does nothing`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+
+        viewModel.clearWall()
+
+        assertEquals(emptyList<Map<Int, String>>(), client.pushedHolds)
+    }
+
+    @Test
+    fun `a failed clear surfaces the error`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+        viewModel.toggleHold(segmentIndex = 1)
+        client.failWith = IOException("gone")
+
+        viewModel.clearWall()
+
+        assertEquals(WallUiState.Error(WallProblem.Unreachable), viewModel.uiState.value)
+    }
 }

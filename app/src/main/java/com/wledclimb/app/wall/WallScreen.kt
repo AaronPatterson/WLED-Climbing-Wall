@@ -56,6 +56,7 @@ fun WallScreen(
     onToggle: () -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
     onColorSelect: (HoldColor) -> Unit,
+    onClearWall: () -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
@@ -72,7 +73,8 @@ fun WallScreen(
                 state = state,
                 onToggle = onToggle,
                 onHoldTap = onHoldTap,
-                onColorSelect = onColorSelect
+                onColorSelect = onColorSelect,
+                onClearWall = onClearWall
             )
             is WallUiState.Error -> ErrorContent(problem = state.problem, onRetry = onRetry)
         }
@@ -98,7 +100,8 @@ private fun ColumnScope.ConnectedContent(
     state: WallUiState.Connected,
     onToggle: () -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
-    onColorSelect: (HoldColor) -> Unit
+    onColorSelect: (HoldColor) -> Unit,
+    onClearWall: () -> Unit
 ) {
     val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
     val statusText = stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
@@ -142,8 +145,10 @@ private fun ColumnScope.ConnectedContent(
             .weight(1f, fill = false)
             .padding(top = 16.dp)
     )
-    ZoomControls(
+    GridControls(
         scale = scale,
+        canClear = state.litHolds.isNotEmpty(),
+        onClearWall = onClearWall,
         onZoom = { factor ->
             scale = clampGridScale(scale * factor)
             // Zooming back out has to pull the grid back into view, or it
@@ -333,10 +338,19 @@ private fun HoldCell(
     )
 }
 
-/** Steps zoom in and out, for anyone who would rather not pinch. */
+/**
+ * Zoom steps, for anyone who would rather not pinch, plus clearing the wall.
+ *
+ * Clearing sits here rather than next to the palette: there's no undo and no
+ * saved routes yet, so it's worth keeping away from where fingers are busy
+ * painting. It's disabled when there's nothing lit, so it can't wipe by
+ * accident when the wall is already clear.
+ */
 @Composable
-private fun ZoomControls(
+private fun GridControls(
     scale: Float,
+    canClear: Boolean,
+    onClearWall: () -> Unit,
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -346,6 +360,9 @@ private fun ZoomControls(
         }
         TextButton(onClick = { onZoom(ZOOM_STEP) }, enabled = scale < MAX_GRID_SCALE) {
             Text(text = stringResource(R.string.wall_zoom_in))
+        }
+        TextButton(onClick = onClearWall, enabled = canClear) {
+            Text(text = stringResource(R.string.wall_clear))
         }
     }
 }

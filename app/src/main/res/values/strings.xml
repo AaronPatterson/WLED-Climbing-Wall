@@ -17,6 +17,7 @@
     <string name="wall_turn_on">Turn wall on</string>
     <string name="wall_turn_off">Turn wall off</string>
     <string name="wall_change_controller">Change controller</string>
+    <string name="wall_clear">Clear wall</string>
     <string name="wall_error_title">Couldn\'t reach the wall</string>
     <string name="wall_error_unreachable">Couldn\'t reach the WLED controller. Check that it\'s on and on the same Wi-Fi.</string>
     <string name="wall_error_not_wled">The controller answered, but isn\'t set up as a 2D matrix in WLED.</string>

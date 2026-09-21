@@ -70,12 +70,6 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
      * Tapping a hold that's already the selected colour turns it off, so the
      * same gesture both paints and erases and there's no separate eraser mode
      * to explain. Tapping one showing a different colour repaints it.
-     *
-     * The grid updates before the request completes: on a local network the
-     * round trip is short, but waiting for it would make every tap feel
-     * sticky. A failed push falls back to the error state, same as a failed
-     * on/off toggle, rather than silently leaving the app and the wall
-     * showing different things.
      */
     fun toggleHold(segmentIndex: Int) {
         val current = _uiState.value as? WallUiState.Connected ?: return
@@ -86,15 +80,45 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         } else {
             updated[segmentIndex] = current.selectedColor
         }
-        _uiState.value = current.copy(litHolds = updated)
+        showAndPush(current, updated, "toggleHold($segmentIndex)")
+    }
+
+    /**
+     * Turns every hold off, to start a fresh route.
+     *
+     * Without this, clearing a route means tapping each lit hold in turn - one
+     * request per hold, and a lot of tapping for anything but a short route.
+     */
+    fun clearWall() {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        if (current.litHolds.isEmpty()) return
+
+        showAndPush(current, emptyMap(), "clearWall()")
+    }
+
+    /**
+     * Shows [holds] straight away and pushes them to the wall in the background.
+     *
+     * The grid updates before the request completes: on a local network the
+     * round trip is short, but waiting for it would make every tap feel
+     * sticky. A failed push falls back to the error state, same as a failed
+     * on/off toggle, rather than silently leaving the app and the wall
+     * showing different things.
+     */
+    private fun showAndPush(
+        current: WallUiState.Connected,
+        holds: Map<Int, HoldColor>,
+        description: String
+    ) {
+        _uiState.value = current.copy(litHolds = holds)
 
         viewModelScope.launch {
             try {
-                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = updated.toHex())
+                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = holds.toHex())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "toggleHold($segmentIndex) failed", e)
+                Log.e(TAG, "$description failed", e)
                 _uiState.value = WallUiState.Error(problemFor(e))
             }
         }
