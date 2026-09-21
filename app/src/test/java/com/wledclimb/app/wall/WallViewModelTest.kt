@@ -107,7 +107,7 @@ class WallViewModelTest {
 
         viewModel.toggleHold(segmentIndex = 2)
 
-        assertEquals(mapOf(2 to "FF0000"), connectedState(viewModel).litHolds)
+        assertEquals(mapOf(2 to HoldColor.Red), connectedState(viewModel).litHolds)
         assertEquals(listOf(mapOf(2 to "FF0000")), client.pushedHolds)
         // The clear range has to cover the whole 2x2 segment buffer, or holds
         // outside it stay lit.
@@ -122,7 +122,7 @@ class WallViewModelTest {
 
         viewModel.toggleHold(segmentIndex = 2)
 
-        assertEquals(emptyMap<Int, String>(), connectedState(viewModel).litHolds)
+        assertEquals(emptyMap<Int, HoldColor>(), connectedState(viewModel).litHolds)
         assertEquals(emptyMap<Int, String>(), client.pushedHolds.last())
     }
 
@@ -148,7 +148,7 @@ class WallViewModelTest {
 
         val state = connectedState(viewModel)
         assertEquals(false, state.on)
-        assertEquals(mapOf(1 to "FF0000"), state.litHolds)
+        assertEquals(mapOf(1 to HoldColor.Red), state.litHolds)
     }
 
     @Test
@@ -197,5 +197,56 @@ class WallViewModelTest {
         viewModel.toggleHold(segmentIndex = 1)
 
         assertEquals(emptyList<Map<Int, String>>(), client.pushedHolds)
+    }
+
+    @Test
+    fun `holds are painted in the selected colour`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+
+        viewModel.selectColor(HoldColor.Blue)
+        viewModel.toggleHold(segmentIndex = 1)
+
+        assertEquals(mapOf(1 to HoldColor.Blue), connectedState(viewModel).litHolds)
+        // The wire format is WLED's hex, not the enum.
+        assertEquals(mapOf(1 to "2979FF"), client.pushedHolds.last())
+    }
+
+    @Test
+    fun `tapping a hold already in the selected colour clears it`() = runTest {
+        val viewModel = WallViewModel(FakeWledClient())
+        viewModel.selectColor(HoldColor.Green)
+        viewModel.toggleHold(segmentIndex = 1)
+
+        viewModel.toggleHold(segmentIndex = 1)
+
+        assertEquals(emptyMap<Int, HoldColor>(), connectedState(viewModel).litHolds)
+    }
+
+    @Test
+    fun `tapping a hold showing a different colour repaints it`() = runTest {
+        // Repaint rather than clear: needing to erase before recolouring would
+        // be a fiddly extra step for a six-year-old.
+        val viewModel = WallViewModel(FakeWledClient())
+        viewModel.selectColor(HoldColor.Green)
+        viewModel.toggleHold(segmentIndex = 1)
+
+        viewModel.selectColor(HoldColor.Purple)
+        viewModel.toggleHold(segmentIndex = 1)
+
+        assertEquals(mapOf(1 to HoldColor.Purple), connectedState(viewModel).litHolds)
+    }
+
+    @Test
+    fun `changing colour leaves holds already on the wall alone`() = runTest {
+        val client = FakeWledClient()
+        val viewModel = WallViewModel(client)
+        viewModel.toggleHold(segmentIndex = 1)
+        val pushesBefore = client.pushedHolds.size
+
+        viewModel.selectColor(HoldColor.Yellow)
+
+        assertEquals(mapOf(1 to HoldColor.Red), connectedState(viewModel).litHolds)
+        assertEquals(pushesBefore, client.pushedHolds.size)
     }
 }

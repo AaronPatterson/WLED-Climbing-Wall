@@ -1,7 +1,9 @@
 package com.wledclimb.app.wall
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,10 +23,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -40,6 +52,7 @@ fun WallScreen(
     state: WallUiState,
     onToggle: () -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
+    onColorSelect: (HoldColor) -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
@@ -55,7 +68,8 @@ fun WallScreen(
             is WallUiState.Connected -> ConnectedContent(
                 state = state,
                 onToggle = onToggle,
-                onHoldTap = onHoldTap
+                onHoldTap = onHoldTap,
+                onColorSelect = onColorSelect
             )
             is WallUiState.Error -> ErrorContent(problem = state.problem, onRetry = onRetry)
         }
@@ -80,7 +94,8 @@ private fun ColumnScope.ConnectingContent() {
 private fun ColumnScope.ConnectedContent(
     state: WallUiState.Connected,
     onToggle: () -> Unit,
-    onHoldTap: (segmentIndex: Int) -> Unit
+    onHoldTap: (segmentIndex: Int) -> Unit,
+    onColorSelect: (HoldColor) -> Unit
 ) {
     val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
     val statusText = stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
@@ -113,6 +128,11 @@ private fun ColumnScope.ConnectedContent(
             .weight(1f, fill = false)
             .padding(top = 16.dp)
     )
+    ColorPalette(
+        selected = state.selectedColor,
+        onSelect = onColorSelect,
+        modifier = Modifier.padding(top = 16.dp)
+    )
     Button(
         onClick = onToggle,
         enabled = !state.busy,
@@ -143,19 +163,25 @@ private fun ColumnScope.ErrorContent(problem: WallProblem, onRetry: () -> Unit) 
 
 /**
  * The wall's holds, sized so the whole wall is visible at once - reading a
- * route end to end matters more than per-cell precision, and on a phone that
- * can put cells below the 48dp touch minimum, which is what zoom (still to
- * come) is for.
+ * route end to end matters more than per-cell precision.
+ *
+ * Pinch zooms in and dragging pans, which is what makes the wall usable on a
+ * phone, where fitting 12 columns leaves cells well under the 48dp touch
+ * minimum. Zoomed right out there's nothing to pan to, so dragging does
+ * nothing and taps stay unambiguous.
  */
 @Composable
 private fun WallGrid(
     wall: Wall,
-    litHolds: Map<Int, String>,
+    litHolds: Map<Int, HoldColor>,
     onHoldTap: (segmentIndex: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val holdCount = wall.cells.sumOf { row -> row.count { it != null } }
     val description = stringResource(R.string.wall_grid_description, holdCount, wall.width, wall.height)
+
+    var scale by remember { mutableFloatStateOf(MIN_GRID_SCALE) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
 
     BoxWithConstraints(modifier) {
         // Fit whichever dimension runs out first: on a landscape tablet a
@@ -166,8 +192,30 @@ private fun WallGrid(
         } else {
             0.dp
         }
+        val viewport = with(LocalDensity.current) {
+            Size((cellSize * wall.width).toPx(), (cellSize * wall.height).toPx())
+        }
 
-        Column(modifier = Modifier.semantics { contentDescription = description }) {
+        Column(
+            modifier = Modifier
+                .semantics { contentDescription = description }
+                // graphicsLayer rather than re-laying out at a new cell size:
+                // Compose maps pointer input back through the transform, so the
+                // holds stay tappable where they appear without any hit-test
+                // maths of our own.
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = pan.x
+                    translationY = pan.y
+                }
+                .pointerInput(viewport) {
+                    detectTransformGestures { _, gesturePan, gestureZoom, _ ->
+                        scale = clampGridScale(scale * gestureZoom)
+                        pan = clampGridPan(pan + gesturePan, scale, viewport)
+                    }
+                }
+        ) {
             for (y in 0 until wall.height) {
                 Row {
                     for (x in 0 until wall.width) {
@@ -177,6 +225,8 @@ private fun WallGrid(
                         HoldCell(
                             segmentIndex = if (wall.hasHoldAt(x, y)) segmentIndex else null,
                             color = litHolds[segmentIndex],
+                            column = x,
+                            row = y,
                             size = cellSize,
                             onTap = onHoldTap
                         )
@@ -194,11 +244,24 @@ private fun WallGrid(
 @Composable
 private fun HoldCell(
     segmentIndex: Int?,
-    color: String?,
+    color: HoldColor?,
+    column: Int,
+    row: Int,
     size: Dp,
     onTap: (segmentIndex: Int) -> Unit
 ) {
     val unlitColor = WallStatusColors.gridCell
+    val holdDescription = if (color == null) {
+        stringResource(R.string.wall_hold_description, column + 1, row + 1)
+    } else {
+        stringResource(
+            R.string.wall_hold_lit_description,
+            column + 1,
+            row + 1,
+            stringResource(color.labelRes)
+        )
+    }
+
     Box(
         modifier = Modifier
             .size(size)
@@ -207,16 +270,69 @@ private fun HoldCell(
             .background(
                 when {
                     segmentIndex == null -> Color.Transparent
-                    color != null -> hexToColor(color)
+                    color != null -> color.displayColor
                     else -> unlitColor
                 }
             )
             .then(
-                if (segmentIndex == null) Modifier
-                else Modifier.clickable { onTap(segmentIndex) }
+                if (segmentIndex == null) {
+                    // An empty cell isn't a control; don't announce it at all.
+                    Modifier.clearAndSetSemantics { }
+                } else {
+                    Modifier
+                        .clickable { onTap(segmentIndex) }
+                        .semantics { contentDescription = holdDescription }
+                }
             )
     )
 }
 
-/** "RRGGBB" as WLED writes it, with full opacity added. */
-private fun hexToColor(hex: String): Color = Color(hex.toLong(16) or 0xFF000000L)
+/** The colours a hold can be painted in. Tapping one arms it for the next tap. */
+@Composable
+private fun ColorPalette(
+    selected: HoldColor,
+    onSelect: (HoldColor) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        for (color in HoldColor.entries) {
+            val isSelected = color == selected
+            val label = stringResource(color.labelRes)
+            val swatchDescription =
+                if (isSelected) stringResource(R.string.color_selected, label) else label
+            Box(
+                modifier = Modifier
+                    // Comfortably above the 48dp minimum: these get tapped by
+                    // six-year-olds.
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(color.displayColor)
+                    .border(
+                        width = if (isSelected) 4.dp else 1.dp,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        },
+                        shape = CircleShape
+                    )
+                    .clickable { onSelect(color) }
+                    .semantics { contentDescription = swatchDescription }
+            )
+        }
+    }
+}
+
+/** WLED's "RRGGBB" as an opaque Compose colour. */
+private val HoldColor.displayColor: Color
+    get() = Color(hex.toLong(16) or 0xFF000000L)
+
+private val HoldColor.labelRes: Int
+    get() = when (this) {
+        HoldColor.Red -> R.string.color_red
+        HoldColor.Orange -> R.string.color_orange
+        HoldColor.Yellow -> R.string.color_yellow
+        HoldColor.Green -> R.string.color_green
+        HoldColor.Blue -> R.string.color_blue
+        HoldColor.Purple -> R.string.color_purple
+    }

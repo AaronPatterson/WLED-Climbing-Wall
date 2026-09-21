@@ -19,13 +19,6 @@ import kotlinx.coroutines.launch
 private const val TAG = "WallViewModel"
 
 /**
- * The single colour holds light up in for now. Phase 3 finishes with a small
- * fixed palette of common hold colours (see docs/design.md); one colour first
- * keeps the end-to-end path honest before the picker exists.
- */
-private const val HOLD_COLOR = "FF0000"
-
-/**
  * Connects to the WLED controller saved during setup: turns the whole wall
  * on/off, and loads its grid layout (from `/json/cfg`) for display. Later
  * phases add per-hold route control.
@@ -65,8 +58,18 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         }
     }
 
+    /** Picks the colour the next tapped hold will be painted in. */
+    fun selectColor(color: HoldColor) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        _uiState.value = current.copy(selectedColor = color)
+    }
+
     /**
-     * Lights or clears one hold and pushes the whole route to the wall.
+     * Paints, repaints or clears one hold, then pushes the whole route.
+     *
+     * Tapping a hold that's already the selected colour turns it off, so the
+     * same gesture both paints and erases and there's no separate eraser mode
+     * to explain. Tapping one showing a different colour repaints it.
      *
      * The grid updates before the request completes: on a local network the
      * round trip is short, but waiting for it would make every tap feel
@@ -78,14 +81,16 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         val current = _uiState.value as? WallUiState.Connected ?: return
 
         val updated = current.litHolds.toMutableMap()
-        if (updated.remove(segmentIndex) == null) {
-            updated[segmentIndex] = HOLD_COLOR
+        if (updated[segmentIndex] == current.selectedColor) {
+            updated.remove(segmentIndex)
+        } else {
+            updated[segmentIndex] = current.selectedColor
         }
         _uiState.value = current.copy(litHolds = updated)
 
         viewModelScope.launch {
             try {
-                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = updated)
+                client.setHoldColors(pixelCount = current.wall.segmentSize, lit = updated.toHex())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -108,7 +113,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                 // which drops the per-pixel route from the wall while the app
                 // still shows it. Push the route again so the two agree.
                 if (on && current.litHolds.isNotEmpty()) {
-                    client.setHoldColors(pixelCount = current.wall.segmentSize, lit = current.litHolds)
+                    client.setHoldColors(pixelCount = current.wall.segmentSize, lit = current.litHolds.toHex())
                 }
                 // copy() rather than a fresh Connected, so the route stays put.
                 current.copy(on = on, busy = false)
@@ -126,6 +131,9 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
  * A controller that answered but isn't set up as a wall needs a different fix
  * from one that couldn't be reached at all.
  */
+/** The wire format WLED wants, from the colours the UI works in. */
+private fun Map<Int, HoldColor>.toHex(): Map<Int, String> = mapValues { it.value.hex }
+
 private fun problemFor(e: Exception): WallProblem = when (e) {
     is WledConfigException -> WallProblem.NotAWledMatrix
     else -> WallProblem.Unreachable

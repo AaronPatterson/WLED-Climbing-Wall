@@ -22,7 +22,18 @@
     <string name="wall_error_not_wled">The controller answered, but isn\'t set up as a 2D matrix in WLED.</string>
     <string name="wall_retry">Retry</string>
 
+    <!-- Hold colours -->
+    <string name="color_red">Red</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_selected">%1$s, selected</string>
+
     <!-- Accessibility -->
     <string name="wall_loading_description">Loading</string>
     <string name="wall_grid_description">Wall layout: %1$d holds across a %2$d by %3$d grid</string>
+    <string name="wall_hold_description">Hold at column %1$d, row %2$d</string>
+    <string name="wall_hold_lit_description">Hold at column %1$d, row %2$d, lit %3$s</string>
 </resources>
