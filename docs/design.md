@@ -75,8 +75,19 @@ Each phase should end with something you can run on a device and see working, be
 | 7 | Photo overlay (P2) | Capture/crop a wall photo, manual or auto hold detection, toggle via the photo |
 | 8 | Light modes (P2) | All Lights / Holds Only / No Holds Only toggle |
 | 9 | Route sharing (P5) | Upload/download routes to a shared server |
+| 10 | Version visibility | Show the build version in the app, so it's obvious which build is on which device |
+| 11 | Navigation polish | Colour palette in a tray at the bottom of the screen; zoom control made compact and out of the way |
+| 12 | Visual gap editor | Mark in the app which grid positions actually have holds, and upload the result to the controller — so moving holds around doesn't mean hand-editing a file |
+| 13 | Kid-friendly effects | A small curated set of WLED effects and palettes to experiment with, rather than mirroring WLED's own UI |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
+
+Notes on the later phases:
+
+- **Phase 10** is small — `BuildConfig.VERSION_NAME` surfaced somewhere unobtrusive. Worth doing early rather than in order, now that builds get sideloaded onto more than one device. It should also fix `versionName`, which still reads `0.1.0-phase0`.
+- **Phase 11** follows on from Phase 3, which put the palette and zoom controls wherever they fitted rather than where they belong.
+- **Phase 12** is already feasible: WLED's own 2D settings page uploads the gap file by POSTing it to `/upload` with the filename `/2d-gaps.json`, so no extra firmware support is needed. The app already knows how to *read* and interpret that file. Note the editor has to write `-1` for a position with no LED and `0` for one that has an LED which shouldn't be used — the two are not interchangeable (see above).
+- **Phase 13** should stay deliberately small. The point is a few big obvious buttons, not a second WLED front end.
 
 ## WLED behaviour worth knowing
 
