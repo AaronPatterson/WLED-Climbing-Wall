@@ -17,7 +17,28 @@ plugins {
 //
 // The same names also work as -P flags or ORG_GRADLE_PROJECT_* environment
 // variables, so CI needs no separate mechanism. See docs/releasing.md.
-val keystorePath = providers.gradleProperty("WLED_CLIMB_STORE_FILE")
+//
+// Checked as a set rather than just the keystore path. Setting the path but
+// leaving a password blank is a mistake that has already happened once here,
+// and it surfaces much later as a cryptic "keystore password was incorrect"
+// from the packaging task. A blank value counts as missing for that reason.
+val signingCredentials = listOf(
+    "WLED_CLIMB_STORE_FILE",
+    "WLED_CLIMB_STORE_PASSWORD",
+    "WLED_CLIMB_KEY_ALIAS",
+    "WLED_CLIMB_KEY_PASSWORD"
+).associateWith { providers.gradleProperty(it).orNull?.takeIf(String::isNotBlank) }
+
+val missingCredentials = signingCredentials.filterValues { it == null }.keys
+val canSignRelease = missingCredentials.isEmpty()
+
+// An unsigned release APK cannot be installed on anything, so producing one
+// is a mistake unless it was asked for. The convention of letting it build
+// anyway exists to keep a project buildable by contributors who will never
+// have the key - this one has no contributors and a single release machine,
+// so the cost (a build that reports success and ships nothing installable)
+// buys nothing. Opt in deliberately with -PallowUnsigned=true.
+val allowUnsigned = providers.gradleProperty("allowUnsigned").orNull?.toBoolean() ?: false
 
 android {
     namespace = "com.wledclimb.app"
@@ -50,13 +71,11 @@ android {
             // v1 stays off: minSdk is 26 and v2 already covers API 24+.
             enableV3Signing = true
 
-            // Left unconfigured on a machine without the credentials, so a
-            // fresh clone still builds and runs tests.
-            keystorePath.orNull?.let { path ->
-                storeFile = rootProject.file(path)
-                storePassword = providers.gradleProperty("WLED_CLIMB_STORE_PASSWORD").orNull
-                keyAlias = providers.gradleProperty("WLED_CLIMB_KEY_ALIAS").orNull
-                keyPassword = providers.gradleProperty("WLED_CLIMB_KEY_PASSWORD").orNull
+            if (canSignRelease) {
+                storeFile = rootProject.file(signingCredentials.getValue("WLED_CLIMB_STORE_FILE")!!)
+                storePassword = signingCredentials.getValue("WLED_CLIMB_STORE_PASSWORD")
+                keyAlias = signingCredentials.getValue("WLED_CLIMB_KEY_ALIAS")
+                keyPassword = signingCredentials.getValue("WLED_CLIMB_KEY_PASSWORD")
             }
         }
     }
@@ -68,11 +87,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Only wired up when the credentials are actually present. Without
-            // this guard a machine lacking them fails the release build with a
-            // null keystore path rather than an obvious "no keystore here" -
-            // it produces app-release-unsigned.apk instead.
-            if (keystorePath.isPresent) {
+            // Attached only when there is something to sign with. The build
+            // fails before reaching here otherwise - see verifyReleaseSigning.
+            if (canSignRelease) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -96,6 +113,33 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 }
+
+// Scoped to the tasks that actually package a release rather than checked at
+// configuration time, so a machine without the keystore can still run `test`,
+// `assembleDebug` and IDE sync - none of which have any business caring about
+// signing. Covers bundleRelease too: an unsigned AAB is the same mistake.
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    doLast {
+        if (!canSignRelease && !allowUnsigned) {
+            throw GradleException(
+                """
+                |Release signing credentials missing: ${missingCredentials.joinToString(", ")}
+                |
+                |These belong in ~/.gradle/gradle.properties - see docs/releasing.md.
+                |A blank value counts as missing, which is the usual cause.
+                |
+                |Building unsigned has to be asked for, because the result cannot
+                |be installed on any device:
+                |
+                |    gradlew assembleRelease -PallowUnsigned=true
+                """.trimMargin()
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "packageRelease" || it.name == "bundleRelease" }
+    .configureEach { dependsOn(verifyReleaseSigning) }
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))

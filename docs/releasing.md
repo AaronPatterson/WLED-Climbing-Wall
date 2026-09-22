@@ -65,7 +65,17 @@ Android Studio uses its bundled JDK internally without exporting it, so Gradle f
    ./gradlew assembleRelease
    ```
 
-   Output lands at `app/build/outputs/apk/release/app-release.apk`. If it comes out named `app-release-unsigned.apk`, the credentials weren't found — the build deliberately falls back rather than failing, so a fresh clone can still build.
+   Output lands at `app/build/outputs/apk/release/app-release.apk`.
+
+   **If the credentials are missing, this fails** rather than quietly producing an unsigned APK, and the error names which property is absent. A blank value counts as missing — that's the usual cause, and it's what produces the otherwise baffling `keystore password was incorrect` if it slips through.
+
+   Most Android projects let an unsigned release build succeed, because an open-source project has to stay buildable by contributors who will never hold the key. This one has no contributors and a single release machine, so that convention would buy nothing and cost a build that reports success while producing something no device can install. To build unsigned deliberately:
+
+   ```
+   ./gradlew assembleRelease -PallowUnsigned=true
+   ```
+
+   Only `assembleRelease` and `bundleRelease` are affected. `test`, `assembleDebug` and IDE sync work fine without any credentials.
 
 3. **Verify the signature**, rather than trusting the filename:
 
