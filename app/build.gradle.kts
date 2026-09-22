@@ -1,8 +1,44 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// The release keystore never goes in the repo. On Android the signing
+// certificate *is* the app's identity: updates are only accepted if they're
+// signed by the same key, so anyone holding it can ship a build that devices
+// trust as genuine - and losing it means never being able to update the
+// installs already out there.
+//
+// Credentials come from Gradle properties in ~/.gradle/gradle.properties,
+// deliberately outside the project rather than in a gitignored file beside
+// it. gitignore only defends against git; a secret inside the project folder
+// is still reachable by a zip of the directory, a backup tool pointed at the
+// repo, or a stray `git add -f`. Outside the tree none of those touch it.
+//
+// The same names also work as -P flags or ORG_GRADLE_PROJECT_* environment
+// variables, so CI needs no separate mechanism. See docs/releasing.md.
+//
+// Checked as a set rather than just the keystore path. Setting the path but
+// leaving a password blank is a mistake that has already happened once here,
+// and it surfaces much later as a cryptic "keystore password was incorrect"
+// from the packaging task. A blank value counts as missing for that reason.
+val signingCredentials = listOf(
+    "WLED_CLIMB_STORE_FILE",
+    "WLED_CLIMB_STORE_PASSWORD",
+    "WLED_CLIMB_KEY_ALIAS",
+    "WLED_CLIMB_KEY_PASSWORD"
+).associateWith { providers.gradleProperty(it).orNull?.takeIf(String::isNotBlank) }
+
+val missingCredentials = signingCredentials.filterValues { it == null }.keys
+val canSignRelease = missingCredentials.isEmpty()
+
+// An unsigned release APK cannot be installed on anything, so producing one
+// is a mistake unless it was asked for. The convention of letting it build
+// anyway exists to keep a project buildable by contributors who will never
+// have the key - this one has no contributors and a single release machine,
+// so the cost (a build that reports success and ships nothing installable)
+// buys nothing. Opt in deliberately with -PallowUnsigned=true.
+val allowUnsigned = providers.gradleProperty("allowUnsigned").orNull?.toBoolean() ?: false
 
 android {
     namespace = "com.wledclimb.app"
@@ -12,10 +48,36 @@ android {
         applicationId = "com.wledclimb.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-phase0"
+        // Bump both when cutting a release. versionCode is what decides
+        // "is there a newer build?" - Android rejects an update whose code is
+        // lower than what's installed, and Obtainium/Play won't offer one that
+        // isn't higher. Day-to-day `adb install -r` tolerates an unchanged
+        // code, so this only has to move when a build actually goes out.
+        // Forgetting shows up as an update that silently doesn't apply, which
+        // is why versionName is on screen in the app.
+        versionCode = 2
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            // v3 is what makes key rotation possible at all (API 28+): a later
+            // build can carry a lineage proving a new key was authorised by
+            // this one. It is the only escape hatch if this key is ever
+            // compromised - it does nothing for a key that is simply lost,
+            // since rotating requires the old key to sign off on the new.
+            // v1 stays off: minSdk is 26 and v2 already covers API 24+.
+            enableV3Signing = true
+
+            if (canSignRelease) {
+                storeFile = rootProject.file(signingCredentials.getValue("WLED_CLIMB_STORE_FILE")!!)
+                storePassword = signingCredentials.getValue("WLED_CLIMB_STORE_PASSWORD")
+                keyAlias = signingCredentials.getValue("WLED_CLIMB_KEY_ALIAS")
+                keyPassword = signingCredentials.getValue("WLED_CLIMB_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -25,6 +87,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Attached only when there is something to sign with. The build
+            // fails before reaching here otherwise - see verifyReleaseSigning.
+            if (canSignRelease) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -33,12 +100,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
+        // Off by default since AGP 8. Needed for BuildConfig.VERSION_NAME,
+        // which the app shows so you can tell which build is on which device.
+        buildConfig = true
     }
 
     testOptions {
@@ -47,6 +113,33 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 }
+
+// Scoped to the tasks that actually package a release rather than checked at
+// configuration time, so a machine without the keystore can still run `test`,
+// `assembleDebug` and IDE sync - none of which have any business caring about
+// signing. Covers bundleRelease too: an unsigned AAB is the same mistake.
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    doLast {
+        if (!canSignRelease && !allowUnsigned) {
+            throw GradleException(
+                """
+                |Release signing credentials missing: ${missingCredentials.joinToString(", ")}
+                |
+                |These belong in ~/.gradle/gradle.properties - see docs/releasing.md.
+                |A blank value counts as missing, which is the usual cause.
+                |
+                |Building unsigned has to be asked for, because the result cannot
+                |be installed on any device:
+                |
+                |    gradlew assembleRelease -PallowUnsigned=true
+                """.trimMargin()
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "packageRelease" || it.name == "bundleRelease" }
+    .configureEach { dependsOn(verifyReleaseSigning) }
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))

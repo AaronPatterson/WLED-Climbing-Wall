@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.wledclimb.app.BuildConfig
 import com.wledclimb.app.R
 import com.wledclimb.app.grid.Wall
 
@@ -83,6 +84,17 @@ fun WallScreen(
         TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
             Text(text = stringResource(R.string.wall_change_controller))
         }
+        // Builds get sideloaded onto several devices, so "which one is this?"
+        // needs an answer that doesn't involve a cable. Also the tell for an
+        // update that didn't take: the old version is still showing here.
+        // Outside the when for the same reason as the button above - a build
+        // that can't reach the wall is exactly one you might be checking.
+        Text(
+            text = stringResource(R.string.wall_version, BuildConfig.VERSION_NAME),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
     }
 }
 
