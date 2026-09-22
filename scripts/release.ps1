@@ -40,6 +40,7 @@ Set-Location $repoRoot
 
 $gradleFile = Join-Path $repoRoot 'app/build.gradle.kts'
 $apkPath    = Join-Path $repoRoot 'app/build/outputs/apk/release/app-release.apk'
+$aabPath    = Join-Path $repoRoot 'app/build/outputs/bundle/release/app-release.aab'
 $tag        = "v$VersionName"
 
 # --- Preconditions -----------------------------------------------------------
@@ -100,9 +101,13 @@ Set-Content -Path $gradleFile -Value $content -NoNewline
 
 Step 'Building the signed release'
 
+# Both artifacts from one invocation, so they cannot disagree about what they
+# contain: the APK goes to GitHub releases for Obtainium, the AAB goes to Play,
+# and building them separately would eventually ship a mismatched pair.
+#
 # Deliberately not passing -PallowUnsigned: if credentials are missing this
 # should stop here, not produce something no device can install.
-& "$repoRoot/gradlew.bat" assembleRelease
+& "$repoRoot/gradlew.bat" assembleRelease bundleRelease
 if ($LASTEXITCODE -ne 0) {
     git checkout -- $gradleFile
     Fail 'Build failed. The version bump has been reverted.'
@@ -111,6 +116,11 @@ if ($LASTEXITCODE -ne 0) {
 if (-not (Test-Path $apkPath)) {
     git checkout -- $gradleFile
     Fail "Expected $apkPath. An app-release-unsigned.apk here means signing was skipped."
+}
+
+if (-not (Test-Path $aabPath)) {
+    git checkout -- $gradleFile
+    Fail "Expected $aabPath. Play will not accept an APK, so a release without this is only half done."
 }
 
 # --- Verify the signature ----------------------------------------------------
@@ -147,6 +157,7 @@ if ($DryRun) {
     Write-Host "  Would commit:  Release $VersionName"
     Write-Host "  Would tag:     $tag"
     Write-Host "  Would publish: $(Split-Path $asset -Leaf)"
+    Write-Host "  Play bundle:   $aabPath"
     Write-Host "`n  Reverting the version bump."
     git checkout -- $gradleFile
     Remove-Item $asset -Force
@@ -183,3 +194,11 @@ First install on a device that currently has a debug build needs an uninstall fi
 
 Step "Released $VersionName"
 Write-Host "  https://github.com/AaronPatterson/WLED-Climbing-Wall/releases/tag/$tag"
+
+# The bundle is deliberately not attached to the GitHub release. Nothing can
+# install an AAB directly - it is an upload format that Play turns into
+# per-device APKs - so publishing it beside the APK would only invite someone
+# to download the wrong file.
+Step 'Play bundle ready to upload'
+Write-Host "  $aabPath"
+Write-Host '  Play Console -> Testing -> Internal testing -> Create new release'
