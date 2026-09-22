@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Generated: the same coordinates produce the Play store PNG, so edit the
+    generator rather than this file if the figure ever changes.
+
+    Limbs are strokes with round caps rather than filled outlines, which keeps
+    the path data short enough to read and means the weight can be adjusted by
+    changing one number instead of redrawing an outline.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="9.97"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M55.25,43.20 L48.60,64.80" />
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="8.14"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M55.25,43.20 L66.88,33.23 L72.69,22.43" />
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="8.14"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M55.25,43.20 L40.29,46.52 L35.31,35.72" />
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="8.14"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48.60,64.80 L40.29,74.77 L42.78,85.57" />
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="8.14"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48.60,64.80 L62.72,70.62 L71.03,62.31" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M51.09,32.40 a5.82,5.82 0 1,0 11.63,0 a5.82,5.82 0 1,0 -11.63,0 Z" />
+</vector>
