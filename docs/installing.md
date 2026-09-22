@@ -18,7 +18,25 @@ It also sidesteps an unknown: nothing in Google's documentation confirms whether
 
 **On your own device**, Android prompts the first time an app tries to install another, and you grant it there.
 
-Note that `adb install` needs none of this — it runs as the shell user and skips the installer UI entirely. That remains the fallback if anything here gets awkward.
+Note that `adb install` needs none of this — it runs as the shell user and skips the installer UI entirely. That remains the fallback if anything here gets awkward, **except on Samsung devices** (see below).
+
+### Samsung devices: Auto Blocker
+
+Samsung's Auto Blocker, on by default since One UI 6.1.1, **overrides the unknown-sources permission**. Granting that permission and still being blocked is not a misconfiguration — it is the feature working as intended.
+
+> Settings → Security and privacy → Auto Blocker
+
+It closes the adb fallback too. It blocks adb over USB, and it prevents wireless debugging from being enabled at all, so there is no path onto the device that leaves it switched on.
+
+It blocks *installing*, not *running*. So the useful pattern on a child's tablet is:
+
+1. Auto Blocker **off**
+2. Install Obtainium and the app
+3. Auto Blocker **back on**
+
+The app keeps working. What stops working is Obtainium *applying* updates — its update check is an ordinary HTTPS request and should be unaffected, so it can still report that a new version exists. Applying one means switching Auto Blocker off for a minute.
+
+For a release every few weeks that is a minute of parent time, in exchange for a tablet that refuses sideloaded apps the rest of the time. Leaving Auto Blocker permanently off is the alternative, and it is a real reduction in what that device will refuse to install — worth choosing deliberately rather than as a side effect of setting up a wall-light app.
 
 ### 2. Install Obtainium
 
