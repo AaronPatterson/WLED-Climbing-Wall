@@ -42,12 +42,12 @@ val allowUnsigned = providers.gradleProperty("allowUnsigned").orNull?.toBoolean(
 
 android {
     namespace = "com.wledclimb.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.wledclimb.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Bump both when cutting a release. versionCode is what decides
         // "is there a newer build?" - Android rejects an update whose code is
         // lower than what's installed, and Obtainium/Play won't offer one that
