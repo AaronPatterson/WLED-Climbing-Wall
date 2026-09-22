@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// The release keystore never goes in the repo. On Android the signing
+// certificate *is* the app's identity: updates are only accepted if they're
+// signed by the same key, so anyone holding it can ship a build that devices
+// trust as genuine - and losing it means never being able to update the
+// installs already out there. keystore.properties lives only on the machine
+// that cuts releases; see keystore.properties.example for its shape.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -12,10 +26,30 @@ android {
         applicationId = "com.wledclimb.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-phase0"
+        // Bump both when cutting a release. versionCode is what decides
+        // "is there a newer build?" - Android rejects an update whose code is
+        // lower than what's installed, and Obtainium/Play won't offer one that
+        // isn't higher. Day-to-day `adb install -r` tolerates an unchanged
+        // code, so this only has to move when a build actually goes out.
+        // Forgetting shows up as an update that silently doesn't apply, which
+        // is why versionName is on screen in the app.
+        versionCode = 2
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            // Left unconfigured on a machine without the keystore, so a fresh
+            // clone still builds and runs tests.
+            keystoreProperties.getProperty("storeFile")?.let { path ->
+                storeFile = rootProject.file(path)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -25,6 +59,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only wired up when the keystore is actually present. Without
+            // this guard a machine lacking it fails the release build with a
+            // null keystore path rather than an obvious "no keystore here".
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -33,12 +73,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
+        // Off by default since AGP 8. Needed for BuildConfig.VERSION_NAME,
+        // which the app shows so you can tell which build is on which device.
+        buildConfig = true
     }
 
     testOptions {

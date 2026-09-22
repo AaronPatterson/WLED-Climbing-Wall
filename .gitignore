@@ -14,3 +14,10 @@
 /app/build/
 /app/release/
 /app/debug/
+
+# Release signing. The keystore is the app's identity and cannot be replaced:
+# back it up somewhere durable, but never commit it. keystore.properties holds
+# its passwords. The .example file alongside it is committed on purpose.
+/keystore.properties
+*.jks
+*.keystore
