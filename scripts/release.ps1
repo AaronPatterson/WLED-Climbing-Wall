@@ -69,6 +69,14 @@ if (-not $env:JAVA_HOME) {
     Fail "JAVA_HOME is not set. See docs/releasing.md."
 }
 
+# Resolved up front rather than at the publish step. Discovering it is missing
+# after the tag has been pushed leaves a tag with no release behind it.
+$gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+if (-not $gh) { $gh = 'C:\Program Files\GitHub CLI\gh.exe' }
+if (-not (Test-Path $gh)) {
+    Fail "GitHub CLI not found on PATH or at $gh. Install it, or the release can be built but not published."
+}
+
 # --- Version bump ------------------------------------------------------------
 
 Step 'Bumping the version'
@@ -157,7 +165,7 @@ git tag -a $tag -m "Release $VersionName"
 git push --quiet origin main
 git push --quiet origin $tag
 
-& "/c/Program Files/GitHub CLI/gh.exe" release create $tag $asset `
+& $gh release create $tag $asset `
     --title "$VersionName" `
     --notes "Signed release build. Install via Obtainium, or download the APK directly.
 
