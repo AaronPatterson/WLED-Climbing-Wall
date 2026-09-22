@@ -41,6 +41,14 @@ android {
 
     signingConfigs {
         create("release") {
+            // v3 is what makes key rotation possible at all (API 28+): a later
+            // build can carry a lineage proving a new key was authorised by
+            // this one. It is the only escape hatch if this key is ever
+            // compromised - it does nothing for a key that is simply lost,
+            // since rotating requires the old key to sign off on the new.
+            // v1 stays off: minSdk is 26 and v2 already covers API 24+.
+            enableV3Signing = true
+
             // Left unconfigured on a machine without the keystore, so a fresh
             // clone still builds and runs tests.
             keystoreProperties.getProperty("storeFile")?.let { path ->
