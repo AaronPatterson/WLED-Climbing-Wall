@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -81,8 +82,19 @@ fun WallScreen(
         }
         // Outside the when: reachable from every state, including when the
         // controller can't be reached and changing it is the way out.
-        TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
-            Text(text = stringResource(R.string.wall_change_controller))
+        //
+        // The privacy policy sits beside it because Play's Families policy
+        // requires the link inside the app as well as on the store listing,
+        // and an app aimed at children has to be able to show it whatever
+        // state it is in - including when it cannot reach the wall.
+        val uriHandler = LocalUriHandler.current
+        Row(modifier = Modifier.padding(top = 32.dp)) {
+            TextButton(onClick = onChangeController) {
+                Text(text = stringResource(R.string.wall_change_controller))
+            }
+            TextButton(onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) }) {
+                Text(text = stringResource(R.string.wall_privacy_policy))
+            }
         }
         // Builds get sideloaded onto several devices, so "which one is this?"
         // needs an answer that doesn't involve a cable. Also the tell for an
@@ -435,6 +447,14 @@ private fun ColorPalette(
 private val MAX_SWATCH_SIZE = 56.dp
 
 /** WLED's "RRGGBB" as an opaque Compose colour. */
+/**
+ * Served from the repository's own GitHub Pages site, so it costs nothing and
+ * cannot lapse. Changing what it says needs no store review; changing this
+ * address does, since Play holds it as part of the listing.
+ */
+private const val PRIVACY_POLICY_URL =
+    "https://aaronpatterson.github.io/WLED-Climbing-Wall/privacy.html"
+
 private val HoldColor.displayColor: Color
     get() = Color(hex.toLong(16) or 0xFF000000L)
 
