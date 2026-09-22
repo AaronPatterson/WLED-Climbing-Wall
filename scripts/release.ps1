@@ -162,6 +162,16 @@ versionCode $currentCode -> $newCode, so devices see this as an update.
 Built and signature-verified by scripts/release.ps1."
 
 git tag -a $tag -m "Release $VersionName"
+
+# main requires a pull request, and this pushes to it directly. That is
+# deliberate and it is the only sanctioned exception: branch protection leaves
+# administrators unenforced precisely so this keeps working, because a release
+# that fails here has already bumped, built, verified and committed, and would
+# strand a local commit and a tag with nowhere to go.
+#
+# If that exemption is ever removed, do not paper over it by force-pushing.
+# Move the version bump into its own pull request and leave this script to tag,
+# build and publish only - then it never needs to write to main at all.
 git push --quiet origin main
 git push --quiet origin $tag
 
