@@ -16,8 +16,10 @@
 /app/debug/
 
 # Release signing. The keystore is the app's identity and cannot be replaced:
-# back it up somewhere durable, but never commit it. keystore.properties holds
-# its passwords. The .example file alongside it is committed on purpose.
+# back it up somewhere durable, but never commit it. Credentials live in
+# ~/.gradle/gradle.properties, outside the project entirely - see
+# docs/releasing.md. keystore.properties is no longer read by the build, but
+# stays ignored so an old one left lying around can't be committed by mistake.
 /keystore.properties
 *.jks
 *.keystore

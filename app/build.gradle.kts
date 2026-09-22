@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -9,14 +7,17 @@ plugins {
 // certificate *is* the app's identity: updates are only accepted if they're
 // signed by the same key, so anyone holding it can ship a build that devices
 // trust as genuine - and losing it means never being able to update the
-// installs already out there. keystore.properties lives only on the machine
-// that cuts releases; see keystore.properties.example for its shape.
-val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties().apply {
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.inputStream().use { load(it) }
-    }
-}
+// installs already out there.
+//
+// Credentials come from Gradle properties in ~/.gradle/gradle.properties,
+// deliberately outside the project rather than in a gitignored file beside
+// it. gitignore only defends against git; a secret inside the project folder
+// is still reachable by a zip of the directory, a backup tool pointed at the
+// repo, or a stray `git add -f`. Outside the tree none of those touch it.
+//
+// The same names also work as -P flags or ORG_GRADLE_PROJECT_* environment
+// variables, so CI needs no separate mechanism. See docs/releasing.md.
+val keystorePath = providers.gradleProperty("WLED_CLIMB_STORE_FILE")
 
 android {
     namespace = "com.wledclimb.app"
@@ -49,13 +50,13 @@ android {
             // v1 stays off: minSdk is 26 and v2 already covers API 24+.
             enableV3Signing = true
 
-            // Left unconfigured on a machine without the keystore, so a fresh
-            // clone still builds and runs tests.
-            keystoreProperties.getProperty("storeFile")?.let { path ->
+            // Left unconfigured on a machine without the credentials, so a
+            // fresh clone still builds and runs tests.
+            keystorePath.orNull?.let { path ->
                 storeFile = rootProject.file(path)
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storePassword = providers.gradleProperty("WLED_CLIMB_STORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("WLED_CLIMB_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("WLED_CLIMB_KEY_PASSWORD").orNull
             }
         }
     }
@@ -67,10 +68,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Only wired up when the keystore is actually present. Without
-            // this guard a machine lacking it fails the release build with a
-            // null keystore path rather than an obvious "no keystore here".
-            if (keystorePropertiesFile.exists()) {
+            // Only wired up when the credentials are actually present. Without
+            // this guard a machine lacking them fails the release build with a
+            // null keystore path rather than an obvious "no keystore here" -
+            // it produces app-release-unsigned.apk instead.
+            if (keystorePath.isPresent) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
