@@ -99,3 +99,13 @@ Uninstall first. **This wipes app data**, so the saved controller IP has to be r
 adb uninstall com.wledclimb.app
 adb install app\build\outputs\apk\release\app-release.apk
 ```
+
+## Test builds are a separate app
+
+Debug builds install as `com.wledclimb.app.debug`, labelled **WLED Climb (debug)**, and sit on the launcher next to the real one.
+
+This exists because debug builds are signed with the throwaway debug key. Sharing one `applicationId` would mean a debug build can neither install over a release build nor be replaced by one, so every swap between a test build and the published release would cost an uninstall — and once routes are saved, that means losing them each time.
+
+It also keeps Obtainium out of the way. Obtainium tracks `com.wledclimb.app` and cannot see the debug package at all, so a test build sitting on the device can't be mistaken for a stale release or prompted over.
+
+The two have separate storage, so the debug app asks for its own controller address. That's deliberate: a test build can be pointed somewhere else without disturbing the build anyone else is using.

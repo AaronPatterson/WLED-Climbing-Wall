@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Overrides the name from src/main for debug builds only. With a separate
+    applicationId the two builds sit on the launcher side by side, and two
+    identical icons is a guessing game - especially on a device where someone
+    else is using the real one.
+
+    Done as a source-set override rather than resValue() in Gradle, which would
+    collide with the app_name already declared in src/main.
+-->
+<resources>
+    <string name="app_name">WLED Climb (debug)</string>
+</resources>

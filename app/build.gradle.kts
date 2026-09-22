@@ -81,6 +81,24 @@ android {
     }
 
     buildTypes {
+        debug {
+            // A separate app, not a variant of the same one. Debug builds are
+            // signed with the throwaway debug key, so without this they cannot
+            // install over a release build or be replaced by one - every swap
+            // between a test build and the published release would cost an
+            // uninstall, and once routes are saved that means losing them.
+            //
+            // It also keeps Obtainium out of the way: it manages
+            // com.wledclimb.app and cannot see this package at all.
+            //
+            // Separate applicationId means separate storage, so the debug app
+            // asks for a controller address of its own. That is the point - a
+            // test build can be aimed somewhere else without disturbing the
+            // build anyone else is using.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
