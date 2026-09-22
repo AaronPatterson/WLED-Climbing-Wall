@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The launcher icon's background layer. White rather than a brand colour:
+        the figure is a plain black silhouette, and a coloured disc behind it
+        would be a second design decision doing no work.
+
+        Deliberately not in values-night. Launcher icons are not re-themed for
+        dark mode - the launcher applies its own mask and background treatment -
+        so a dark variant here would only ever confuse someone later.
+    -->
+    <color name="ic_launcher_background">#FFFFFFFF</color>
+</resources>
