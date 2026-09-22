@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Generated: the same coordinates produce the Play store PNG, so edit the
-    generator rather than this file if the figure ever changes.
+    A climbing figure. Limbs are strokes with round caps rather than filled
+    outlines, so the weight is one number per path rather than an outline to
+    redraw, and the coordinates stay legible.
 
-    Limbs are strokes with round caps rather than filled outlines, which keeps
-    the path data short enough to read and means the weight can be adjusted by
-    changing one number instead of redrawing an outline.
+    The artwork occupies the central ~66 of the 108 viewport. Adaptive icons
+    guarantee only that much survives masking, and an earlier version had its
+    corners cut off by the circular mask.
+
+    docs/play-store-icon-512.png is the same figure rendered for Play. The two
+    are separate files, so a change here needs mirroring there.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
