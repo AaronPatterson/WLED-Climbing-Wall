@@ -38,6 +38,7 @@
 
     <!-- Build identity -->
     <string name="wall_version">Version %1$s</string>
+    <string name="wall_privacy_policy">Privacy</string>
 
     <!-- Accessibility -->
     <string name="wall_loading_description">Loading</string>
