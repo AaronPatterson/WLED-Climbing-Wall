@@ -9,17 +9,17 @@ import com.wledclimb.app.grid.Wall
  * unusable rather than padded: a half-read grid would put holds in the wrong
  * places, which is worse than admitting the wall needs fetching again.
  */
-object WallOccupancy {
+object HoldGrid {
 
     fun serialize(wall: Wall): String = buildString {
         for (row in wall.cells) for (cell in row) append(if (cell) '1' else '0')
     }
 
-    fun parse(occupancy: String, width: Int, height: Int): Wall? {
+    fun parse(holdGrid: String, width: Int, height: Int): Wall? {
         if (width < 0 || height < 0) return null
-        if (occupancy.length != width * height) return null
+        if (holdGrid.length != width * height) return null
         val cells = (0 until height).map { y ->
-            (0 until width).map { x -> occupancy[y * width + x] == '1' }
+            (0 until width).map { x -> holdGrid[y * width + x] == '1' }
         }
         return Wall(width = width, height = height, cells = cells)
     }
