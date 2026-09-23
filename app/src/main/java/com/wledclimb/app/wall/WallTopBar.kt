@@ -2,7 +2,6 @@ package com.wledclimb.app.wall
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,12 +16,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -153,84 +150,61 @@ fun WallTopBar(
         )
 
         if (brightnessOpen) {
-            // While a finger is down the slider owns its position, and the
-            // wall's reported brightness is ignored.
+            // Steps rather than a slider.
             //
-            // Requests are conflated, so a reply confirming an older value
-            // arrives while the finger has already moved on. Feeding the
-            // reported value straight back into the slider let those replies
-            // drag it backwards - a visible stutter mid-drag, and at the top of
-            // the range a deadlock, because every reply reset it to maximum
-            // faster than a drag could move it away.
-            // Seeded when the row opens and owned by the slider from then on.
+            // A slider was three rounds of bugs and still would not take a drag
+            // started on its own thumb - touching the track worked, touching
+            // the thumb did nothing. Dragging also means precision, near a
+            // screen edge, on a control aimed at six-year-olds.
             //
-            // Earlier versions kept syncing this back from the wall's reported
-            // brightness whenever a drag was thought to have ended, which was a
-            // race: for a short movement onValueChangeFinished can land in the
-            // same frame as onValueChange, before the new value has propagated,
-            // so the thumb snapped back to where it started. A quick jab did
-            // nothing at all while a slow deliberate drag sometimes survived -
-            // which is exactly how it behaved.
-            //
-            // Nothing syncs it now. A brightness changed elsewhere while this
-            // row is open will not be picked up until it is reopened, which is
-            // the right trade: the value under someone's finger should not move
-            // on its own.
-            var position by remember(brightnessOpen) { mutableFloatStateOf(brightness.toFloat()) }
-            // Reported across the usable range rather than against 255, so the
-            // ends read 0% and 100%. The wall never actually reaches zero - see
-            // MIN_USABLE_BRIGHTNESS - but a slider whose bottom says 3% looks
-            // broken, and "as dim as this goes" is what the control means.
-            val usableRange = (MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS).toFloat()
-            val percent = ((position - MIN_USABLE_BRIGHTNESS) / usableRange * 100).toInt()
+            // Two buttons need no precision, cannot be captured by a system
+            // gesture, and have nothing to race. The step is a tenth of the
+            // usable range, which is about as fine as anyone adjusts a wall.
+            val usableRange = MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS
+            val step = usableRange / 10
+            val percent = (brightness - MIN_USABLE_BRIGHTNESS) * 100 / usableRange
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Wider than the usual 16dp on purpose. At either end of its
-                    // travel the thumb sits near a screen edge, and those edges
-                    // belong to the system's back gesture.
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription =
+                            "Brightness $percent percent"
+                    }
             ) {
-                Slider(
-                    value = position,
-                    onValueChange = {
-                        position = it
-                        onBrightnessChange(it.toInt())
+                IconButton(
+                    onClick = {
+                        onBrightnessChange((brightness - step).coerceAtLeast(MIN_USABLE_BRIGHTNESS))
                     },
-                    // Never reaches zero. Brightness rising from zero is what
-                    // makes WLED unfreeze its segments and drop the route, and
-                    // it would also give the wall a second way to be off.
-                    valueRange = MIN_USABLE_BRIGHTNESS.toFloat()..MAX_BRIGHTNESS.toFloat(),
-                    enabled = enabled,
-                    modifier = Modifier
-                        .weight(1f)
-                        // Android's back gesture is driven from both screen
-                        // edges, and it wins over whatever is drawn there. With
-                        // the thumb at either end of its travel it sat inside
-                        // that zone, so a drag became a back gesture and the
-                        // control appeared stuck - most obviously at the top,
-                        // where it could not be moved away at all without first
-                        // tapping elsewhere on the track.
-                        .systemGestureExclusion()
-                        .semantics {
-                            contentDescription = "Brightness $percent percent"
-                        }
-                )
+                    enabled = enabled && brightness > MIN_USABLE_BRIGHTNESS
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_minus),
+                        contentDescription = stringResource(R.string.wall_brightness_down)
+                    )
+                }
                 Text(
                     text = "$percent%",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End,
-                    // Fixed width, or the slider's own width changes as the
-                    // number does. The slider takes the space this label leaves,
-                    // so dropping a digit widens it and slides the thumb out
-                    // from under the finger - worst at the top of the range,
-                    // where the first movement goes from four characters to
-                    // three and shunts the thumb right as the drag pulls left.
-                    modifier = Modifier.width(44.dp)
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    // Fixed, so the buttons either side do not shuffle about as
+                    // the number gains and loses a digit.
+                    modifier = Modifier.width(72.dp)
                 )
+                IconButton(
+                    onClick = {
+                        onBrightnessChange((brightness + step).coerceAtMost(MAX_BRIGHTNESS))
+                    },
+                    enabled = enabled && brightness < MAX_BRIGHTNESS
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_plus),
+                        contentDescription = stringResource(R.string.wall_brightness_up)
+                    )
+                }
             }
         }
     }
