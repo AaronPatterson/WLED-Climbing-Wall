@@ -41,6 +41,13 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
      */
     private val brightnessRequests = Channel<Int>(Channel.CONFLATED)
 
+    /**
+     * The most recent brightness asked for, which is not necessarily the one
+     * being confirmed: conflation means a reply can describe a value the user
+     * has already moved past.
+     */
+    private var requestedBrightness: Int? = null
+
     init {
         refresh()
         viewModelScope.launch {
@@ -55,7 +62,14 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         try {
             val status = client.setBrightness(brightness = brightness, on = current.on)
             val latest = _uiState.value as? WallUiState.Connected ?: return
-            _uiState.value = latest.copy(brightness = status.brightness, on = status.on)
+            // Power is always worth taking from the reply. Brightness only when
+            // nothing newer has been asked for, or a slow reply would drag the
+            // value back to where the finger has already left.
+            val superseded = requestedBrightness != brightness
+            _uiState.value = latest.copy(
+                brightness = if (superseded) latest.brightness else status.brightness,
+                on = status.on
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -184,6 +198,7 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
         // Moves with the finger. The request that follows is conflated, so the
         // slider stays smooth whatever the controller is keeping up with.
         _uiState.value = current.copy(brightness = brightness)
+        requestedBrightness = brightness
         brightnessRequests.trySend(brightness)
     }
 

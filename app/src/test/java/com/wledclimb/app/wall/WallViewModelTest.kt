@@ -1,8 +1,11 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.network.WledStatus
+import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -44,6 +47,41 @@ class WallViewModelTest {
         assertFalse(wall.hasHoldAt(x = 1, y = 0))
         assertTrue(wall.hasHoldAt(x = 0, y = 1))
         assertEquals(3, wall.holdCount)
+    }
+
+    @Test
+    fun `a late confirmation does not drag brightness back`() = runTest {
+        // The reported bug: the slider stuttered mid-drag, and at the top of the
+        // range became unmovable. Requests are conflated, so a reply can confirm
+        // a value the finger has already left. Writing that reply into state
+        // pulled the slider backwards - and at maximum it did so faster than a
+        // drag could move away, which reads as the control being stuck.
+        //
+        // Both replies are held open. Releasing only the first leaves the newer
+        // request still in flight, which is the one moment the stale value could
+        // win - let the newer one finish and state converges either way, which
+        // is how an earlier version of this test managed to pass against the bug
+        // it was written for.
+        val firstReply = CompletableDeferred<Unit>()
+        val secondReply = CompletableDeferred<Unit>()
+        val client = object : WledClient by FakeWledClient(on = true) {
+            override suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus {
+                if (brightness == 100) firstReply.await() else secondReply.await()
+                return WledStatus(on = on, brightness = brightness)
+            }
+        }
+        val viewModel = WallViewModel(client)
+        connectedState(viewModel)
+
+        viewModel.setBrightness(100)
+        runCurrent()
+        viewModel.setBrightness(240)
+        runCurrent()
+        firstReply.complete(Unit)
+        runCurrent()
+
+        val state = viewModel.uiState.value as WallUiState.Connected
+        assertEquals("the newer value should survive the older reply", 240, state.brightness)
     }
 
     @Test

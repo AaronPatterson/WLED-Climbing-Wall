@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -149,7 +150,21 @@ fun WallTopBar(
         )
 
         if (brightnessOpen) {
-            val percent = brightness * 100 / MAX_BRIGHTNESS
+            // While a finger is down the slider owns its position, and the
+            // wall's reported brightness is ignored.
+            //
+            // Requests are conflated, so a reply confirming an older value
+            // arrives while the finger has already moved on. Feeding the
+            // reported value straight back into the slider let those replies
+            // drag it backwards - a visible stutter mid-drag, and at the top of
+            // the range a deadlock, because every reply reset it to maximum
+            // faster than a drag could move it away.
+            var dragging by remember { mutableStateOf(false) }
+            var position by remember { mutableFloatStateOf(brightness.toFloat()) }
+            if (!dragging && position.toInt() != brightness) {
+                position = brightness.toFloat()
+            }
+            val percent = position.toInt() * 100 / MAX_BRIGHTNESS
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -158,8 +173,13 @@ fun WallTopBar(
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {
                 Slider(
-                    value = brightness.toFloat(),
-                    onValueChange = { onBrightnessChange(it.toInt()) },
+                    value = position,
+                    onValueChange = {
+                        dragging = true
+                        position = it
+                        onBrightnessChange(it.toInt())
+                    },
+                    onValueChangeFinished = { dragging = false },
                     // Never reaches zero. Brightness rising from zero is what
                     // makes WLED unfreeze its segments and drop the route, and
                     // it would also give the wall a second way to be off.
