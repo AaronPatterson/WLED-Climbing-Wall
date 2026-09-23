@@ -3,6 +3,7 @@ package com.wledclimb.app.wall
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +44,31 @@ class WallViewModelTest {
         assertFalse(wall.hasHoldAt(x = 1, y = 0))
         assertTrue(wall.hasHoldAt(x = 0, y = 1))
         assertEquals(3, wall.holdCount)
+    }
+
+    @Test
+    fun `a failed brightness change does not tear down the screen`() = runTest {
+        // The reported bug: dragging the brightness slider dropped the whole
+        // screen to "couldn't reach the wall", losing the grid and the route.
+        // A dropped brightness request is not evidence the wall has gone - it
+        // is one request among many during a drag.
+        val client = FakeWledClient(on = true)
+        val viewModel = WallViewModel(client)
+        val before = connectedState(viewModel)
+        viewModel.toggleHold(before.wall.segmentIndexAt(x = 0, y = 0))
+        runCurrent()
+
+        client.failWith = IOException("unexpected end of stream")
+        viewModel.setBrightness(200)
+        runCurrent()
+
+        val after = viewModel.uiState.value
+        assertTrue("expected to stay connected, was $after", after is WallUiState.Connected)
+        assertEquals(
+            "the route should survive a failed brightness change",
+            1,
+            (after as WallUiState.Connected).litHolds.size
+        )
     }
 
     @Test

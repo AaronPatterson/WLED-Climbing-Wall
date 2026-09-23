@@ -8,11 +8,29 @@ package com.wledclimb.app.network
  */
 interface WledClient {
 
-    /** Current power state of the wall, read from WLED. */
-    suspend fun getOn(): Boolean
+    /** Power and brightness, read together because they arrive together. */
+    suspend fun getStatus(): WledStatus
 
     /** Turns the whole wall on or off, returning the state WLED confirms. */
-    suspend fun setOn(on: Boolean): Boolean
+    suspend fun setOn(on: Boolean): WledStatus
+
+    /**
+     * Sets master brightness, returning the state WLED confirms.
+     *
+     * [on] has to be passed and sent explicitly. WLED derives power from
+     * brightness when the field is absent - `bool on = root["on"] | (bri > 0)`
+     * - so a bare brightness change would switch a sleeping wall back on.
+     *
+     * [brightness] must not be zero. Brightness crossing up from zero is what
+     * triggers WLED's "unfreeze all segments" path, which drops the route from
+     * the wall while the app still shows it. Callers clamp to
+     * [MIN_USABLE_BRIGHTNESS] rather than relying on the UI never producing a
+     * zero.
+     */
+    suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus
+
+    /** The controller's own name, used to label the wall. */
+    suspend fun getName(): String
 
     /** Raw JSON from `/json/cfg` (grid layout, LED count, segments). */
     suspend fun getConfig(): String
@@ -40,3 +58,17 @@ interface WledClient {
      */
     suspend fun setHoldColors(pixelCount: Int, lit: Map<Int, String>)
 }
+
+/**
+ * The lowest brightness the app will send.
+ *
+ * Not zero, and not merely for taste. WLED unfreezes every segment when
+ * brightness rises from zero (`if (bri && !onBefore)` in json.cpp), which
+ * silently drops the route the wall is displaying. Keeping brightness off that
+ * boundary means the route survives the slider, and leaves "off" as the one
+ * thing that turns the wall off - one concept rather than two.
+ */
+const val MIN_USABLE_BRIGHTNESS = 8
+
+/** WLED's maximum master brightness. */
+const val MAX_BRIGHTNESS = 255
