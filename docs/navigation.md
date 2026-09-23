@@ -92,7 +92,36 @@ applying a route is fire-and-forget or a negotiation.
 | B | List-detail with an adaptive rail | Routes listed beside the editor, both visible. Selecting a route stops being a navigation event that hides the list. |
 | C | Single screen with a drawer | Scales best as management grows, but hides everything behind a hamburger, and Material 3 discourages drawers for few destinations. |
 
-**Chosen: B.** The primary device is a tablet in landscape, which is what
+**Chosen: both, selected by window size.** A and B are not alternatives. The
+Material 3 adaptive libraries switch between them from one implementation, along
+two independent axes:
+
+| | Library | Compact (phone) | Expanded (tablet) |
+| --- | --- | --- | --- |
+| Navigation chrome | `NavigationSuiteScaffold` | bottom bar | navigation rail |
+| Content layout | `ListDetailPaneScaffold` | one pane, list to detail | list and detail side by side |
+
+A phone therefore gets pattern A and the tablet gets pattern B, with no branching
+on device type and no second layout to maintain. `ListDetailPaneScaffold` also
+handles the back stack, which is the fiddly part: back from the editor returns to
+the list on a phone and does nothing on a tablet, where the list never left.
+
+Two things follow from this that are easy to get wrong:
+
+- The switch keys off **window** width, not device. A tablet in split screen gets
+  the phone layout, which is correct but means available width is the trigger
+  rather than the hardware. The tablet in portrait may land in medium rather than
+  expanded, so that breakpoint is a decision to make deliberately.
+- The Compose BOM here is `2024.09.00` and the current release is `2026.09.00`.
+  The adaptive libraries need something far newer, so that upgrade is a
+  prerequisite with its own risk rather than part of the navigation work. Same
+  shape as the AGP upgrade: not scope creep, just a dependency nobody had cause
+  to notice until something needed it.
+
+Versions at time of writing, all stable: navigation-suite 1.4.0, adaptive-layout
+1.3.0, adaptive-navigation 1.3.0.
+
+The earlier reasoning for preferring B on a tablet still holds: The primary device is a tablet in landscape, which is what
 list-detail is for, and it is the only option where selecting a route does not
 cost the list. Material 3's `NavigationSuiteScaffold` gives a rail on a tablet
 and a bottom bar on a phone from one implementation, so phones are not a second
