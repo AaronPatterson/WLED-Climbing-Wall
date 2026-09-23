@@ -46,6 +46,60 @@ For what the segment name costs and the two hazards around it - a boundary chang
 wiping it, and presets capturing it - see "WLED behaviour worth knowing" in
 [design.md](design.md).
 
+## Scenarios not yet designed
+
+Captured 2026-09-23. Neither is being built yet.
+
+### Loading what is already on the wall
+
+One child builds a route on their device and applies it. Another wants to pull
+up whatever the wall is currently showing, then edit it or save it as their own
+route.
+
+**The obvious implementation is not available.** The app cannot read back which
+holds are lit. `/json/live`, which would expose per-LED colour, returns
+`501 {"error":4}` on this controller, and `/json/state` carries only the
+segment's three colour slots - there is no per-pixel array anywhere in it. The
+`"i"` command is effectively write-only: individual pixels can be set and never
+asked about.
+
+So this scenario cannot be served by reading the wall. The realistic routes are:
+
+- **Share the route, not the pixels.** The claim already identifies who holds the
+  wall; it could also name what they applied. The second device then needs the
+  route itself, which means routes syncing between devices - phase 9 territory,
+  and a much larger change than this scenario looks like from the outside.
+- **Investigate the websocket live preview.** WLED's own UI renders a live view
+  from somewhere, and if that channel carries LED data it may be readable. It
+  would arrive in strip order rather than grid order, which would mean
+  reintroducing the ledmap handling deliberately removed from `WallMapper`.
+
+Worth knowing before anyone estimates this: it looks like a small feature and is
+not one.
+
+### Two people editing the same live route
+
+Building on the same idea: two devices editing what is on the wall at once,
+each polling periodically so changes made by the other appear.
+
+Requirements as stated:
+
+- Pull the wall's current state periodically and reflect it in the UI.
+- Changes made by others must show up.
+- Concurrency does not need to be perfect, but should minimise the chance of one
+  person's change being stepped on.
+- Possibly pull before applying, keeping local changes so they can be replayed
+  onto whatever came back if it differs.
+
+That last point is a sound approach and worth keeping. It is the same shape as a
+rebase: take the other side's state, replay your own edits on top, push the
+result. It needs edits held as operations - "light 4,4 blue" - rather than as a
+finished picture, because a picture cannot be replayed onto a changed base.
+
+The same readback problem applies, and harder. Polling "the wall's current
+state" is exactly the thing that is not currently possible, so this scenario
+depends entirely on solving the one above first.
+
 ## Open questions
 
 - **Detection versus claim.** A claim says who *intends* to hold the wall.
