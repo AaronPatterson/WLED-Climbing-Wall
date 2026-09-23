@@ -2,6 +2,7 @@ package com.wledclimb.app.wall
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -164,13 +165,21 @@ fun WallTopBar(
             if (!dragging && position.toInt() != brightness) {
                 position = brightness.toFloat()
             }
-            val percent = position.toInt() * 100 / MAX_BRIGHTNESS
+            // Reported across the usable range rather than against 255, so the
+            // ends read 0% and 100%. The wall never actually reaches zero - see
+            // MIN_USABLE_BRIGHTNESS - but a slider whose bottom says 3% looks
+            // broken, and "as dim as this goes" is what the control means.
+            val usableRange = (MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS).toFloat()
+            val percent = ((position - MIN_USABLE_BRIGHTNESS) / usableRange * 100).toInt()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    // Wider than the usual 16dp on purpose. At either end of its
+                    // travel the thumb sits near a screen edge, and those edges
+                    // belong to the system's back gesture.
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
             ) {
                 Slider(
                     value = position,
@@ -187,6 +196,14 @@ fun WallTopBar(
                     enabled = enabled,
                     modifier = Modifier
                         .weight(1f)
+                        // Android's back gesture is driven from both screen
+                        // edges, and it wins over whatever is drawn there. With
+                        // the thumb at either end of its travel it sat inside
+                        // that zone, so a drag became a back gesture and the
+                        // control appeared stuck - most obviously at the top,
+                        // where it could not be moved away at all without first
+                        // tapping elsewhere on the track.
+                        .systemGestureExclusion()
                         .semantics {
                             contentDescription = "Brightness $percent percent"
                         }
