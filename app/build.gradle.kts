@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 // The release keystore never goes in the repo. On Android the signing
@@ -159,6 +160,12 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
 tasks.matching { it.name == "packageRelease" || it.name == "bundleRelease" }
     .configureEach { dependsOn(verifyReleaseSigning) }
 
+// Room writes the schema as JSON so migrations can be diffed against a real
+// previous version rather than reconstructed from memory.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
 
@@ -177,6 +184,12 @@ dependencies {
 
     // Persists the saved WLED controller address across app restarts
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Saved walls and routes. Room validates its queries at compile time,
+    // which is most of why it is worth the annotation processor.
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
