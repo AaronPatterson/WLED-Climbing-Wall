@@ -130,6 +130,10 @@ android {
         // android.util.Log is a stub in local unit tests and throws "not mocked"
         // by default - which would fail any test covering a code path that logs.
         unitTests.isReturnDefaultValues = true
+        // Robolectric needs the real android.jar rather than the stub, for the
+        // tests that run SQLite. The rest of the suite is unaffected: it never
+        // touches a framework class, so it neither gains nor loses anything.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -205,4 +209,10 @@ dependencies {
     // viewModelScope fails to run at all in a local JVM test. Version tracks
     // the kotlinx-coroutines-core that Compose/lifecycle resolve to.
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    // Runs the DAOs against real SQLite on the JVM. Room validates its queries
+    // at compile time, but that is not the same as running them - nothing there
+    // checks that a cascade deletes, or that a Flow re-emits when a row changes.
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.test:core-ktx:1.7.0")
+    testImplementation("androidx.room:room-testing:2.8.5")
 }
