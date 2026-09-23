@@ -41,6 +41,30 @@ val canSignRelease = missingCredentials.isEmpty()
 // buys nothing. Opt in deliberately with -PallowUnsigned=true.
 val allowUnsigned = providers.gradleProperty("allowUnsigned").orNull?.toBoolean() ?: false
 
+/**
+ * Which commit a debug build came from, appended to its version name.
+ *
+ * Every test build so far has called itself 0.7.0-debug, so a phone could not
+ * say which of them it was holding - which defeats the point of showing the
+ * version at all. Release builds are identified by their version number and
+ * do not get this.
+ *
+ * A dirty tree is marked, because most test builds are made from one and the
+ * hash alone would name a commit the build does not actually match.
+ */
+val debugBuildId: String = try {
+    fun git(vararg args: String) = providers.exec {
+        commandLine(listOf("git") + args)
+    }.standardOutput.asText.get().trim()
+
+    val hash = git("rev-parse", "--short=7", "HEAD")
+    val dirty = if (git("status", "--porcelain").isNotEmpty()) ".dirty" else ""
+    "+$hash$dirty"
+} catch (e: Exception) {
+    // A build from a source drop rather than a checkout still has to work.
+    ""
+}
+
 android {
     namespace = "com.wledclimb.app"
     compileSdk = 37
@@ -97,7 +121,7 @@ android {
             // test build can be aimed somewhere else without disturbing the
             // build anyone else is using.
             applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            versionNameSuffix = "-debug$debugBuildId"
         }
 
         release {
