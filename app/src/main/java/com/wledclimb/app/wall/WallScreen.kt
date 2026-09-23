@@ -235,7 +235,7 @@ private fun WallGrid(
     onTransform: (pan: Offset, zoom: Float, viewport: Size) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val holdCount = wall.cells.sumOf { row -> row.count { it != null } }
+    val holdCount = wall.holdCount
     val description =
         stringResource(R.string.wall_grid_description, holdCount, wall.width, wall.height)
 
