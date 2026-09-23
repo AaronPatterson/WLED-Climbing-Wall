@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +21,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +36,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.R
 import com.wledclimb.app.network.MAX_BRIGHTNESS
@@ -162,8 +165,12 @@ fun WallTopBar(
             // faster than a drag could move it away.
             var dragging by remember { mutableStateOf(false) }
             var position by remember { mutableFloatStateOf(brightness.toFloat()) }
-            if (!dragging && position.toInt() != brightness) {
-                position = brightness.toFloat()
+            // In an effect rather than written straight into the composition.
+            // Assigning state while composing is read back inconsistently
+            // depending on what else recomposes in the same frame, which is a
+            // poor foundation for something a finger is currently touching.
+            LaunchedEffect(brightness, dragging) {
+                if (!dragging) position = brightness.toFloat()
             }
             // Reported across the usable range rather than against 255, so the
             // ends read 0% and 100%. The wall never actually reaches zero - see
@@ -211,7 +218,15 @@ fun WallTopBar(
                 Text(
                     text = "$percent%",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                    // Fixed width, or the slider's own width changes as the
+                    // number does. The slider takes the space this label leaves,
+                    // so dropping a digit widens it and slides the thumb out
+                    // from under the finger - worst at the top of the range,
+                    // where the first movement goes from four characters to
+                    // three and shunts the thumb right as the drag pulls left.
+                    modifier = Modifier.width(44.dp)
                 )
             }
         }
