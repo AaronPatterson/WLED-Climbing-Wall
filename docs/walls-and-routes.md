@@ -53,6 +53,21 @@ The strip indices and the serpentine walk that produced them are gone, which is
 what leaves a wall small enough to be worth storing: width, height, and which
 cells hold a light.
 
+## What a stored wall does not keep
+
+The grid is stored as `holdGrid`: one character per cell, row-major, '1' where a
+hold can be lit. That is the gap file *resolved* against panel coverage and
+flattened to a yes or no, and it is deliberately not reversible. WLED's -1 (no
+LED wired) and 0 (an LED wired but unused) both land on '0', and only the second
+consumes a strip index, so a gap file rebuilt from `holdGrid` would shift every
+LED after the first gap.
+
+The raw gap values are therefore **not** stored. Phase 12's gap editor refetches
+`/2d-gaps.json` when it opens, which costs nothing: it has to be connected to
+upload the result anyway, and a fresh copy beats a possibly stale one. This is
+also why the column is not named after the gap file - a name suggesting it could
+be written back would be an invitation to that bug.
+
 ## Open questions
 
 - **What "last selected route" survives.** Process death, certainly. Whether it
