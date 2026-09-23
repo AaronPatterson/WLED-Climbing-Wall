@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Overrides the launcher background from src/main for debug builds only.
+        The debug build installs as a separate app alongside the real one, so
+        two identical icons on the launcher is a guessing game - the label
+        distinguishes them, but only once you are close enough to read it.
+
+        Light purple picks up the app's own accent, so it reads as deliberate
+        rather than broken, while being unmistakable at a glance. The climber
+        is black in both, so contrast is unaffected.
+    -->
+    <color name="ic_launcher_background">#FFDFD0F7</color>
+</resources>
