@@ -1,6 +1,9 @@
 package com.wledclimb.app.wall
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +24,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -103,18 +109,41 @@ fun WallTopBar(
                         contentDescription = stringResource(R.string.wall_brightness)
                     )
                 }
-                // Colour carries the state, so the button reports as well as
-                // acts. The label still says which way it will go, because
-                // colour alone is not an answer for anyone who cannot see it.
+                // The whole button lights up rather than just the glyph. A
+                // tinted outline was too quiet to answer "is the wall on?" from
+                // across a garage, which is the one question this control exists
+                // to answer without being tapped.
+                //
+                // The label still says which way it will go, because colour
+                // alone is not an answer for anyone who cannot see it.
+                val statusColour = if (on) WallStatusColors.on else WallStatusColors.off
                 IconButton(onClick = onToggle, enabled = enabled) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_power),
-                        contentDescription = stringResource(
-                            if (on) R.string.wall_turn_off else R.string.wall_turn_on
-                        ),
-                        tint = if (on) WallStatusColors.on else WallStatusColors.off,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            // Filled when on, hollow when off: the difference
+                            // reads at a glance and does not rely on telling two
+                            // colours apart.
+                            .background(if (on) statusColour else Color.Transparent)
+                            .border(width = 2.dp, color = statusColour, shape = CircleShape)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_power),
+                            contentDescription = stringResource(
+                                if (on) R.string.wall_turn_off else R.string.wall_turn_on
+                            ),
+                            // On a filled circle the glyph has to contrast with
+                            // the fill, not match it.
+                            tint = if (on) {
+                                MaterialTheme.colorScheme.surface
+                            } else {
+                                statusColour
+                            },
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         )
