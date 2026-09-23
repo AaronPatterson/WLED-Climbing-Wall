@@ -132,12 +132,66 @@ what satisfies "reachable from most screens" without repeating them per screen.
 Configuration screens are pushed as full destinations, which is what takes the
 controls away there.
 
+## Decisions
+
+### Control is a convention, stored in the segment name
+
+Not a lock. The app writes a claim and offers take over and release, and anyone
+is free to ignore or clear it.
+
+The claim lives in the segment's name field, set and read through `/json/state`:
+
+    POST {"seg":[{"id":0,"n":"wledclimb:eli"}]}   ->  {"success":true}
+    GET  /json/state                              ->  seg[0].n == "wledclimb:eli"
+    POST {"seg":[{"id":0,"n":""}]}                ->  cleared
+
+Verified against the wall on WLED 16.0.1. Setting a name changes nothing about
+what the LEDs display.
+
+Chosen over the two alternatives for a concrete reason. A claim file on the
+controller's filesystem was the obvious idea - it is how the gap file already
+works - but `/edit` returns **401** on this controller because a settings PIN is
+configured, so the file API is not available to the app. `/json/state` is not
+gated. Storing the claim in a preset slot would work and is readable through
+`/presets.json`, but it consumes a slot and pollutes the preset list.
+
+The name is visible in WLED's own interface, which is a feature: someone poking
+at the controller directly can see that the app believes a person holds it, and
+can clear it without needing the app.
+
+Two things not yet verified, both cheap to check when building: whether the name
+survives a controller reboot, and whether the per-pixel route push disturbs it.
+
+### A stored wall is fingerprinted, and routes remember which version they fit
+
+The wall can change underneath the app - a new gap file, a resized matrix - and
+routes built against the old layout may reference holds that no longer exist.
+
+Each wall stores a fingerprint of its dimensions and gap pattern, and every route
+records the fingerprint it was created against. On reconnect the app recomputes
+from `/json/cfg` and `/2d-gaps.json` and compares.
+
+Routes that no longer match are **kept, not discarded**. They carry a warning in
+the list, and opening one diffs its lit positions against the current gap pattern
+so the holds that have gone can be shown and the route repaired.
+
+### Management lives under configuration for now
+
+Gap editing and the wall picture sit inside configuration rather than becoming a
+top-level destination. They can be promoted later; the point for now is to keep
+the surface the children see as small as possible.
+
+This has a consequence for the navigation above. With management folded in there
+are only two top-level destinations, Routes and Settings, and Settings is the
+rare one. A bottom bar carrying two items where children should only ever touch
+one is worse than a single icon in the top bar, so `NavigationSuiteScaffold` is
+**not** used yet - settings is a pushed destination, which is also what takes the
+wall controls away from it. `ListDetailPaneScaffold` is still used, because the
+list-beside-editor behaviour is the part that earns its keep.
+
+The navigation suite goes back in when management is promoted.
+
 ## Open questions
 
-- **Control and takeover.** Detection is achievable; a lock is not, without
-  abusing controller state. Decide which before building apply.
-- **Management vs configuration.** Management is wall-scoped (gaps, picture) and
-  configuration is app-scoped (address, about). Once there is more than one
-  wall, management belongs underneath a wall rather than beside settings.
 - **What "last selected route" survives.** Process death, certainly. Whether it
   survives switching walls is a different question.
