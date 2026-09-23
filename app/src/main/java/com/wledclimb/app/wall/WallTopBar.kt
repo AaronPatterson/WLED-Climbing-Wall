@@ -21,7 +21,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -163,15 +162,21 @@ fun WallTopBar(
             // drag it backwards - a visible stutter mid-drag, and at the top of
             // the range a deadlock, because every reply reset it to maximum
             // faster than a drag could move it away.
-            var dragging by remember { mutableStateOf(false) }
-            var position by remember { mutableFloatStateOf(brightness.toFloat()) }
-            // In an effect rather than written straight into the composition.
-            // Assigning state while composing is read back inconsistently
-            // depending on what else recomposes in the same frame, which is a
-            // poor foundation for something a finger is currently touching.
-            LaunchedEffect(brightness, dragging) {
-                if (!dragging) position = brightness.toFloat()
-            }
+            // Seeded when the row opens and owned by the slider from then on.
+            //
+            // Earlier versions kept syncing this back from the wall's reported
+            // brightness whenever a drag was thought to have ended, which was a
+            // race: for a short movement onValueChangeFinished can land in the
+            // same frame as onValueChange, before the new value has propagated,
+            // so the thumb snapped back to where it started. A quick jab did
+            // nothing at all while a slow deliberate drag sometimes survived -
+            // which is exactly how it behaved.
+            //
+            // Nothing syncs it now. A brightness changed elsewhere while this
+            // row is open will not be picked up until it is reopened, which is
+            // the right trade: the value under someone's finger should not move
+            // on its own.
+            var position by remember(brightnessOpen) { mutableFloatStateOf(brightness.toFloat()) }
             // Reported across the usable range rather than against 255, so the
             // ends read 0% and 100%. The wall never actually reaches zero - see
             // MIN_USABLE_BRIGHTNESS - but a slider whose bottom says 3% looks
@@ -191,11 +196,9 @@ fun WallTopBar(
                 Slider(
                     value = position,
                     onValueChange = {
-                        dragging = true
                         position = it
                         onBrightnessChange(it.toInt())
                     },
-                    onValueChangeFinished = { dragging = false },
                     // Never reaches zero. Brightness rising from zero is what
                     // makes WLED unfreeze its segments and drop the route, and
                     // it would also give the wall a second way to be off.
