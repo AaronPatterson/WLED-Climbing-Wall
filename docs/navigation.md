@@ -159,8 +159,43 @@ The name is visible in WLED's own interface, which is a feature: someone poking
 at the controller directly can see that the app believes a person holds it, and
 can clear it without needing the app.
 
-Two things not yet verified, both cheap to check when building: whether the name
-survives a controller reboot, and whether the per-pixel route push disturbs it.
+#### What the segment name normally does, and what it costs
+
+It is a cosmetic label shown in WLED's own web interface so several segments can
+be told apart - "Ceiling", "Desk". It has no effect on rendering.
+
+Checked in the firmware rather than assumed:
+
+- **No flash wear.** `setName` and `clearName` are heap operations
+  (`p_free(name); name = nullptr`) with no `serializeConfig()` behind them, so
+  the claim can be written as often as needed.
+- **It does not survive a reboot.** There are no references to segment names in
+  `cfg.cpp`, so the name is absent from `cfg.json`. A power cycle drops the
+  claim, which is the desired behaviour - nobody holds the wall after a reboot.
+  The exception is a configured boot preset that was saved while a name was set,
+  which restores it.
+- **Nothing changes on the wall.** Confirmed against the hardware.
+
+#### Two hazards to build around
+
+**A segment command that moves the boundaries wipes the name.** From `json.cpp`:
+
+    if (elem["n"]) {
+      seg.setName(name);
+    } else if (start != seg.start || stop != seg.stop) {
+      seg.clearName();
+    }
+
+Any command that changes `start` or `stop` without also carrying `"n"` clears it
+silently. The current `setHoldColors` sends `{"seg":{"i":[...]}}` with no bounds
+and is therefore safe, but this is precisely the sort of thing that breaks later
+when a field is added, so the claim has to be re-sent by anything touching
+segment geometry.
+
+**Presets capture the name.** It is serialized when `forPreset`, so saving a
+route as a WLED preset bakes in whoever held the wall at that moment, and
+applying that preset later restores a stale claim. This matters for phase 6 and
+is a reason to strip or overwrite the name when applying a preset.
 
 ### A stored wall is fingerprinted, and routes remember which version they fit
 
