@@ -101,6 +101,17 @@ Things that cost real debugging time, so they're written down rather than redisc
 - **The first `"i"` command freezes the segment and clears it to black**; later ones don't re-clear. Effects and presets stop running while frozen, and `{"seg":{"frz":false}}` releases it.
 - **Push the whole route, not just what changed.** WLED keeps previously set pixels, so an incremental message leaves a hold lit after the app cleared it. One request carrying the full desired state (`[0, pixelCount, "000000", index, colour, …]`) is self-healing and no larger in practice.
 - **Realtime UDP (DDP/DRGB/WARLS) is deliberately not used.** It *would* address the raw strip, but it times out after 2.5s by default, gives no delivery confirmation, doesn't persist as WLED state, and can't be captured in a preset — which would block Phase 6.
+- **A segment's name is free to use, and two things clear it without asking.**
+  The name (`"n"` on a segment) is a cosmetic label WLED shows in its own UI to
+  tell segments apart; it has no effect on rendering. `setName` and `clearName`
+  are heap operations with no config serialization behind them, so there is no
+  flash wear, and `cfg.cpp` never touches it - meaning it is absent from
+  `cfg.json` and a reboot drops it. The hazards: a segment command that changes
+  `start` or `stop` without also carrying `"n"` calls `clearName()` silently
+  (`json.cpp`), and presets serialize the name, so saving one captures whatever
+  it held at the time and applying it later restores that stale value. The app
+  uses this field to hold the wall claim - see
+  [wall-sharing.md](wall-sharing.md).
 - **The gap file's `-1` and `0` mean different things.** `-1` is no LED at all; `0` is an LED that exists but is unused — and it still consumes a strip index, so treating them the same shifts every LED after it.
 
 ## Open questions
