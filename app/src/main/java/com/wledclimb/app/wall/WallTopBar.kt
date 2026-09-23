@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,10 +17,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -150,61 +154,104 @@ fun WallTopBar(
         )
 
         if (brightnessOpen) {
-            // Steps rather than a slider.
-            //
-            // A slider was three rounds of bugs and still would not take a drag
-            // started on its own thumb - touching the track worked, touching
-            // the thumb did nothing. Dragging also means precision, near a
-            // screen edge, on a control aimed at six-year-olds.
-            //
-            // Two buttons need no precision, cannot be captured by a system
-            // gesture, and have nothing to race. The step is a tenth of the
-            // usable range, which is about as fine as anyone adjusts a wall.
             val usableRange = MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS
             val step = usableRange / 10
-            val percent = (brightness - MIN_USABLE_BRIGHTNESS) * 100 / usableRange
+            // Seeded when the row opens and owned by the slider from then on.
+            // Syncing it back from the wall was a race: for a short movement
+            // onValueChangeFinished can land in the same frame as
+            // onValueChange, before the new value has propagated, so the thumb
+            // snapped back to where it started.
+            var position by remember(brightnessOpen) { mutableFloatStateOf(brightness.toFloat()) }
+            val percent = ((position - MIN_USABLE_BRIGHTNESS) / usableRange * 100).toInt()
+
+            fun nudge(by: Int) {
+                val next = (position.toInt() + by)
+                    .coerceIn(MIN_USABLE_BRIGHTNESS, MAX_BRIGHTNESS)
+                position = next.toFloat()
+                onBrightnessChange(next)
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .semantics(mergeDescendants = true) {
-                        contentDescription =
-                            "Brightness $percent percent"
-                    }
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
             ) {
-                IconButton(
-                    onClick = {
-                        onBrightnessChange((brightness - step).coerceAtLeast(MIN_USABLE_BRIGHTNESS))
-                    },
-                    enabled = enabled && brightness > MIN_USABLE_BRIGHTNESS
-                ) {
+                // The buttons are not decoration. Dragging is the nicer
+                // gesture and the reason the slider is here, but it asks for
+                // precision from people who may not have much, and this
+                // control has already proved able to refuse a drag. A tap
+                // always works.
+                IconButton(onClick = { nudge(-step) }, enabled = enabled && position > MIN_USABLE_BRIGHTNESS) {
                     Icon(
                         painter = painterResource(R.drawable.ic_minus),
                         contentDescription = stringResource(R.string.wall_brightness_down)
                     )
                 }
-                Text(
-                    text = "$percent%",
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    // Fixed, so the buttons either side do not shuffle about as
-                    // the number gains and loses a digit.
-                    modifier = Modifier.width(72.dp)
-                )
-                IconButton(
-                    onClick = {
-                        onBrightnessChange((brightness + step).coerceAtMost(MAX_BRIGHTNESS))
+                Slider(
+                    value = position,
+                    onValueChange = {
+                        position = it
+                        onBrightnessChange(it.toInt())
                     },
-                    enabled = enabled && brightness < MAX_BRIGHTNESS
-                ) {
+                    // Never reaches zero. Brightness rising from zero is what
+                    // makes WLED unfreeze its segments and drop the route, and
+                    // it would give the wall a second way to be off.
+                    valueRange = MIN_USABLE_BRIGHTNESS.toFloat()..MAX_BRIGHTNESS.toFloat(),
+                    enabled = enabled,
+                    track = { sliderState ->
+                        // Thicker than the default 4dp. A taller track is a
+                        // taller touch area, which costs nothing here and
+                        // matters on a control that has to tolerate being
+                        // grabbed by a six-year-old rather than aimed at.
+                        SliderDefaults.Track(
+                            sliderState = sliderState,
+                            modifier = Modifier.height(14.dp)
+                        )
+                    },
+                    thumb = {
+                        // Drawn rather than SliderDefaults.Thumb, which wires
+                        // itself to an interaction source for hover and
+                        // indication and swallows a press that lands on it: a
+                        // drag begun on the track moved, one begun on the thumb
+                        // did nothing at all. Nothing here consumes pointer
+                        // events, so the press reaches the slider's own drag
+                        // handling.
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (enabled) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    }
+                                )
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        // Taller than the default, so a press that lands a
+                        // little above or below the track still counts.
+                        .height(48.dp)
+                        .semantics { contentDescription = "Brightness $percent percent" }
+                )
+                IconButton(onClick = { nudge(step) }, enabled = enabled && position < MAX_BRIGHTNESS) {
                     Icon(
                         painter = painterResource(R.drawable.ic_plus),
                         contentDescription = stringResource(R.string.wall_brightness_up)
                     )
                 }
+                Text(
+                    text = "$percent%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                    // Fixed, or the slider's own width changes with the number
+                    // and slides the thumb out from under the finger.
+                    modifier = Modifier.width(44.dp)
+                )
             }
         }
     }
