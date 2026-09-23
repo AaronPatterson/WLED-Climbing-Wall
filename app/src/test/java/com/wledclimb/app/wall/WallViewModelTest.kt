@@ -5,6 +5,7 @@ import com.wledclimb.app.MainDispatcherRule
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,20 +29,20 @@ class WallViewModelTest {
         assertTrue(state.on)
         assertEquals(2, state.wall.width)
         assertEquals(2, state.wall.height)
-        assertEquals(0, state.wall.ledIndexAt(x = 0, y = 0))
-        assertEquals(3, state.wall.ledIndexAt(x = 1, y = 1))
+        assertTrue(state.wall.hasHoldAt(x = 0, y = 0))
+        assertTrue(state.wall.hasHoldAt(x = 1, y = 1))
     }
 
     @Test
     fun `applies the gap file to the grid when the controller has one`() = runTest {
-        // Second cell has no LED behind it, so it should be blank and must not
-        // shift the index of the cell after it.
+        // Second cell has no LED behind it, so there is no hold to light there.
         val viewModel = WallViewModel(FakeWledClient(gaps = "[1,-1,1,1]"))
 
         val wall = connectedState(viewModel).wall
-        assertEquals(0, wall.ledIndexAt(x = 0, y = 0))
-        assertNull(wall.ledIndexAt(x = 1, y = 0))
-        assertEquals(1, wall.ledIndexAt(x = 0, y = 1))
+        assertTrue(wall.hasHoldAt(x = 0, y = 0))
+        assertFalse(wall.hasHoldAt(x = 1, y = 0))
+        assertTrue(wall.hasHoldAt(x = 0, y = 1))
+        assertEquals(3, wall.holdCount)
     }
 
     @Test

@@ -116,4 +116,4 @@ Things that cost real debugging time, so they're written down rather than redisc
 
 ## Open questions
 
-- **Phase 4:** the panel/serpentine algorithm in `WallMapper` is currently only used to work out *which* cells have holds — the wiring flags no longer affect anything sent to the wall, since per-pixel commands address grid positions. Re-evaluate when saved routes land: if nothing wants strip indices by then, it can collapse to a much simpler occupancy check (roughly 15 lines instead of ~60, dropping about 10 tests with it).
+- ~~**Phase 4:** the panel/serpentine algorithm in `WallMapper`...~~ **Resolved.** Nothing wanted strip indices: `ledIndexAt` was called by `hasHoldAt` and by tests, and by nothing else. `Wall` now stores occupancy and `buildWall` marks panel rectangles instead of walking them in wiring order — eight tests pinning serpentine and orientation behaviour went with it. The estimate was close: ~60 lines to ~20, and 15 mapper tests to 11. `Panel` keeps its wiring flags, since they describe the controller's configuration faithfully and a gap-file editor may need them.

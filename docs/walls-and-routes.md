@@ -45,11 +45,13 @@ Routes that no longer match are **kept, not discarded**. They carry a warning in
 the list, and opening one diffs its lit positions against the current gap pattern
 so the holds that have gone can be shown and the route repaired.
 
-This is also the thing that makes `WallMapper`'s panel and serpentine handling
-worth re-examining. The open question in [design.md](design.md) notes it is now
-only used to work out which cells have holds, since per-pixel commands address
-grid positions rather than strip indices. A stored, fingerprinted wall is
-precisely what would make those strip indices unnecessary.
+What a wall stores is therefore occupancy, not wiring. `Wall` used to record
+where each LED sat along the physical strip, ported from WLED's own
+`setUpMatrix()`; that turned out to be read by nothing, because per-pixel
+commands address grid positions and WLED applies its own ledmap when rendering.
+The strip indices and the serpentine walk that produced them are gone, which is
+what leaves a wall small enough to be worth storing: width, height, and which
+cells hold a light.
 
 ## Open questions
 
