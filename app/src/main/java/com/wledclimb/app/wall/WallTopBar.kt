@@ -58,15 +58,19 @@ import com.wledclimb.app.network.MIN_USABLE_BRIGHTNESS
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WallTopBar(
+    modifier: Modifier = Modifier,
     name: String,
     on: Boolean,
     brightness: Int,
     enabled: Boolean,
+    // Hoisted, because tapping anywhere below has to close it and the content
+    // down there cannot reach state that lives in here.
+    brightnessOpen: Boolean,
+    onBrightnessOpenChange: (Boolean) -> Unit,
     onToggle: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
     onChangeController: () -> Unit
 ) {
-    var brightnessOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
 
@@ -74,9 +78,9 @@ fun WallTopBar(
         AboutDialog(onDismiss = { aboutOpen = false })
     }
 
-    Column {
-        TopAppBar(
-            title = { Text(text = name, style = MaterialTheme.typography.titleMedium) },
+    TopAppBar(
+        modifier = modifier,
+        title = { Text(text = name, style = MaterialTheme.typography.titleMedium) },
             navigationIcon = {
                 // Everything that is about the app rather than about the wall.
                 // Small now, but it is where configuration grows, and keeping it
@@ -107,7 +111,7 @@ fun WallTopBar(
             },
             actions = {
                 IconButton(
-                    onClick = { brightnessOpen = !brightnessOpen },
+                    onClick = { onBrightnessOpenChange(!brightnessOpen) },
                     enabled = enabled
                 ) {
                     Icon(
@@ -153,91 +157,4 @@ fun WallTopBar(
                 }
             }
         )
-
-        if (brightnessOpen) {
-            val usableRange = MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS
-            // Seeded when the row opens and owned by the slider from then on.
-            // Syncing it back from the wall was a race: for a short movement
-            // onValueChangeFinished can land in the same frame as
-            // onValueChange, before the new value has propagated, so the thumb
-            // snapped back to where it started.
-            var position by remember(brightnessOpen) { mutableFloatStateOf(brightness.toFloat()) }
-            val percent = ((position - MIN_USABLE_BRIGHTNESS) / usableRange * 100).toInt()
-
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // Wider than usual: with nothing flanking the slider its
-                    // ends sit near the screen edges, which belong to the
-                    // system's back gesture.
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
-            ) {
-                Slider(
-                    value = position,
-                    onValueChange = {
-                        position = it
-                        onBrightnessChange(it.toInt())
-                    },
-                    // Never reaches zero. Brightness rising from zero is what
-                    // makes WLED unfreeze its segments and drop the route, and
-                    // it would give the wall a second way to be off.
-                    valueRange = MIN_USABLE_BRIGHTNESS.toFloat()..MAX_BRIGHTNESS.toFloat(),
-                    enabled = enabled,
-                    track = { sliderState ->
-                        // Thicker than the default 4dp. A taller track is a
-                        // taller touch area, which costs nothing here and
-                        // matters on a control that has to tolerate being
-                        // grabbed by a six-year-old rather than aimed at.
-                        SliderDefaults.Track(
-                            sliderState = sliderState,
-                            modifier = Modifier.height(14.dp)
-                        )
-                    },
-                    thumb = {
-                        // Drawn rather than SliderDefaults.Thumb, which wires
-                        // itself to an interaction source for hover and
-                        // indication and swallows a press that lands on it: a
-                        // drag begun on the track moved, one begun on the thumb
-                        // did nothing at all. Nothing here consumes pointer
-                        // events, so the press reaches the slider's own drag
-                        // handling.
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (enabled) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                    }
-                                )
-                        )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        // Taller than the default, so a press that lands a
-                        // little above or below the track still counts.
-                        .height(48.dp)
-                        // Android drives its back gesture from both screen
-                        // edges and wins over whatever is drawn there. The step
-                        // buttons used to hold the slider clear of them; with
-                        // those gone it has to claim the area itself.
-                        .systemGestureExclusion()
-                        .semantics { contentDescription = "Brightness $percent percent" }
-                )
-                Text(
-                    text = "$percent%",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End,
-                    // Fixed, or the slider's own width changes with the number
-                    // and slides the thumb out from under the finger.
-                    modifier = Modifier.width(44.dp)
-                )
-            }
-        }
-    }
 }
