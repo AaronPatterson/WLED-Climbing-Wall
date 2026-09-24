@@ -14,9 +14,15 @@ Android app for controlling a climbing wall with LED-lit holds (clear holds, LED
 
 **Phase 1 (setup screen) complete**: on first launch, the app asks for the controller's IP/hostname and tests it by pulling `/json/cfg`. On success it saves the address via DataStore and moves straight to wall control; future launches skip setup entirely. A "Change controller" button on the wall screen goes back to setup (pre-filled with the current address) to switch to a different one at any time.
 
-**Phase 2 (grid layout) complete**: the wall screen now parses `/json/cfg`'s panel layout into a real grid (porting WLED's own `setUpMatrix()` panel-to-LED-index algorithm, verified against a real controller's config with unit tests) and renders it as a read-only preview above the on/off toggle. It also reads WLED's optional `/2d-gaps.json`, if configured, to exclude matrix positions that don't have a real LED — on the wall this was tested against, that turned out to matter a lot: the grid is a sparse, irregular shape, not the solid rectangle the panel layout alone would suggest.
+**Phase 2 (grid layout) complete**: the wall screen now parses `/json/cfg`'s panel layout into a real grid (verified against a real controller's config with unit tests) and renders it as a read-only preview above the on/off toggle. It also reads WLED's optional `/2d-gaps.json`, if configured, to exclude matrix positions that don't have a real LED — on the wall this was tested against, that turned out to matter a lot: the grid is a sparse, irregular shape, not the solid rectangle the panel layout alone would suggest.
 
-**Phase 3 (route editor) complete**: the grid is interactive - tap a hold to light it on the real wall, pick from a small palette of colours, and tap again to clear it. The whole wall fits on screen by default, with pinch to zoom and drag to pan for smaller screens. Next up: Phase 4, saving routes locally so they can be named and reapplied.
+**Phase 3 (route editor) complete**: the grid is interactive - tap a hold to light it on the real wall, pick from a small palette of colours, and tap again to clear it. The whole wall fits on screen by default, with pinch to zoom and drag to pan for smaller screens.
+
+**Phase 10 (version visibility) complete**: the build's `versionName` is shown on the wall screen, so it's possible to tell at a glance which build is on which device - which matters now that builds are sideloaded onto several.
+
+**Phase 11 (navigation polish) complete**: the colour palette moved to a tray at the bottom of the screen and the zoom controls became compact icons, rather than sitting wherever they first fitted.
+
+**Phase 4 (local save/load) in progress**: the storage layer is done - a Room database of walls and routes, with the DAOs covered by Robolectric tests that run them against real SQLite. There is no UI on top of it yet, so nothing is saveable from the app; that is the next piece of work. See [`docs/walls-and-routes.md`](docs/walls-and-routes.md) for the data model and [`docs/navigation.md`](docs/navigation.md) for where the screens are heading.
 
 ## Getting started (opening in Android Studio)
 
