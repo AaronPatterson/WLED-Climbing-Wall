@@ -113,6 +113,15 @@ Things that cost real debugging time, so they're written down rather than redisc
   uses this field to hold the wall claim - see
   [wall-sharing.md](wall-sharing.md).
 - **The gap file's `-1` and `0` mean different things.** `-1` is no LED at all; `0` is an LED that exists but is unused — and it still consumes a strip index, so treating them the same shifts every LED after it.
+- **A colour picked on a screen does not arrive on the wall looking the same.**
+  A display is emissive and dim; an LED behind a translucent hold is additive
+  and very bright, so a channel that merely tints on screen can be swamped on
+  the wall. Orange is where this showed: `FF6A00` looks orange in any design
+  tool, but with green at 106 against full red it lit as a warm red. WLED's own
+  quick-select swatches (`wled00/data/index.htm`) are chosen for LED output
+  rather than for a screen, which makes them the better source - their orange
+  is `FFA000`, green at 160. `HoldColor` takes its values from that set. Their
+  set has no purple, so that one stays ours.
 
 ## Open questions
 
