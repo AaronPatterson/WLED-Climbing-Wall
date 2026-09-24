@@ -2,6 +2,7 @@ package com.wledclimb.app.wall
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -155,7 +156,6 @@ fun WallTopBar(
 
         if (brightnessOpen) {
             val usableRange = MAX_BRIGHTNESS - MIN_USABLE_BRIGHTNESS
-            val step = usableRange / 10
             // Seeded when the row opens and owned by the slider from then on.
             // Syncing it back from the wall was a race: for a short movement
             // onValueChangeFinished can land in the same frame as
@@ -164,30 +164,16 @@ fun WallTopBar(
             var position by remember(brightnessOpen) { mutableFloatStateOf(brightness.toFloat()) }
             val percent = ((position - MIN_USABLE_BRIGHTNESS) / usableRange * 100).toInt()
 
-            fun nudge(by: Int) {
-                val next = (position.toInt() + by)
-                    .coerceIn(MIN_USABLE_BRIGHTNESS, MAX_BRIGHTNESS)
-                position = next.toFloat()
-                onBrightnessChange(next)
-            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    // Wider than usual: with nothing flanking the slider its
+                    // ends sit near the screen edges, which belong to the
+                    // system's back gesture.
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
             ) {
-                // The buttons are not decoration. Dragging is the nicer
-                // gesture and the reason the slider is here, but it asks for
-                // precision from people who may not have much, and this
-                // control has already proved able to refuse a drag. A tap
-                // always works.
-                IconButton(onClick = { nudge(-step) }, enabled = enabled && position > MIN_USABLE_BRIGHTNESS) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_minus),
-                        contentDescription = stringResource(R.string.wall_brightness_down)
-                    )
-                }
                 Slider(
                     value = position,
                     onValueChange = {
@@ -235,14 +221,13 @@ fun WallTopBar(
                         // Taller than the default, so a press that lands a
                         // little above or below the track still counts.
                         .height(48.dp)
+                        // Android drives its back gesture from both screen
+                        // edges and wins over whatever is drawn there. The step
+                        // buttons used to hold the slider clear of them; with
+                        // those gone it has to claim the area itself.
+                        .systemGestureExclusion()
                         .semantics { contentDescription = "Brightness $percent percent" }
                 )
-                IconButton(onClick = { nudge(step) }, enabled = enabled && position < MAX_BRIGHTNESS) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_plus),
-                        contentDescription = stringResource(R.string.wall_brightness_up)
-                    )
-                }
                 Text(
                     text = "$percent%",
                     style = MaterialTheme.typography.bodyMedium,

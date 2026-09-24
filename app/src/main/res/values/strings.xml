@@ -38,9 +38,6 @@
 
     <string name="wall_brightness">Brightness</string>
     <string name="wall_menu">Menu</string>
-    <string name="wall_brightness_down">Dimmer</string>
-    <string name="wall_brightness_up">Brighter</string>
-    <string name="wall_brightness_level">Brightness %1$d percent</string>
 
     <!-- About -->
     <string name="about_title">About</string>
