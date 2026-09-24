@@ -62,11 +62,14 @@ fun WallTopBar(
     on: Boolean,
     brightness: Int,
     enabled: Boolean,
+    // Hoisted, because tapping anywhere below has to close it and the content
+    // down there cannot reach state that lives in here.
+    brightnessOpen: Boolean,
+    onBrightnessOpenChange: (Boolean) -> Unit,
     onToggle: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
     onChangeController: () -> Unit
 ) {
-    var brightnessOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
 
@@ -107,7 +110,7 @@ fun WallTopBar(
             },
             actions = {
                 IconButton(
-                    onClick = { brightnessOpen = !brightnessOpen },
+                    onClick = { onBrightnessOpenChange(!brightnessOpen) },
                     enabled = enabled
                 ) {
                     Icon(

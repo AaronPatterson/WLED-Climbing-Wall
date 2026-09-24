@@ -39,6 +39,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
@@ -66,6 +68,8 @@ fun WallScreen(
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
+    var brightnessOpen by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Only when connected: with no wall reached there is no name to show,
         // no brightness to report, and nothing the controls could act on.
@@ -75,6 +79,8 @@ fun WallScreen(
                 on = state.on,
                 brightness = state.brightness,
                 enabled = !state.busy,
+                brightnessOpen = brightnessOpen,
+                onBrightnessOpenChange = { brightnessOpen = it },
                 onToggle = onToggle,
                 onBrightnessChange = onBrightnessChange,
                 onChangeController = onChangeController
@@ -83,6 +89,22 @@ fun WallScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Closes the brightness row on a press anywhere below it, the
+                // way a menu dismisses. Watched on the initial pass and never
+                // consumed, so the press still reaches whatever it landed on -
+                // tapping a hold both paints it and puts the row away, rather
+                // than being swallowed as a dismissal and needing a second tap.
+                .pointerInput(brightnessOpen) {
+                    if (!brightnessOpen) return@pointerInput
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.type == PointerEventType.Press) {
+                                brightnessOpen = false
+                            }
+                        }
+                    }
+                }
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
