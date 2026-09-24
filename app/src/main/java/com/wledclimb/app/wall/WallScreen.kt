@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -42,6 +44,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -52,6 +55,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.BuildConfig
 import com.wledclimb.app.R
@@ -69,12 +73,17 @@ fun WallScreen(
     onChangeController: () -> Unit
 ) {
     var brightnessOpen by remember { mutableStateOf(false) }
+    // Measured rather than assumed, so the floating brightness row sits under
+    // the bar whatever height the bar turns out to be.
+    var topBarHeight by remember { mutableIntStateOf(0) }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Only when connected: with no wall reached there is no name to show,
         // no brightness to report, and nothing the controls could act on.
         if (state is WallUiState.Connected) {
             WallTopBar(
+                modifier = Modifier.onGloballyPositioned { topBarHeight = it.size.height },
                 name = state.name,
                 on = state.on,
                 brightness = state.brightness,
@@ -127,6 +136,20 @@ fun WallScreen(
                 Text(text = stringResource(R.string.wall_change_controller))
             }
         }
+        }
+    }
+        // Drawn over the content, not above it in the layout. Inline, this
+        // pushed the grid down while open and let it spring back on close -
+        // and since it closes on a tap, aiming at a hold slid the grid up
+        // under the finger before the tap resolved, painting the hold below
+        // the one intended.
+        if (state is WallUiState.Connected && brightnessOpen) {
+            BrightnessControl(
+                brightness = state.brightness,
+                enabled = !state.busy,
+                onBrightnessChange = onBrightnessChange,
+                modifier = Modifier.offset { IntOffset(0, topBarHeight) }
+            )
         }
     }
 }
