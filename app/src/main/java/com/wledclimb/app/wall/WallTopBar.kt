@@ -185,24 +185,17 @@ fun WallTopBar(
                     // it would give the wall a second way to be off.
                     valueRange = MIN_USABLE_BRIGHTNESS.toFloat()..MAX_BRIGHTNESS.toFloat(),
                     enabled = enabled,
-                    track = { sliderState ->
-                        // Thicker than the default 4dp. A taller track is a
-                        // taller touch area, which costs nothing here and
-                        // matters on a control that has to tolerate being
-                        // grabbed by a six-year-old rather than aimed at.
-                        SliderDefaults.Track(
-                            sliderState = sliderState,
-                            modifier = Modifier.height(14.dp)
-                        )
-                    },
                     thumb = {
-                        // Drawn rather than SliderDefaults.Thumb, which wires
-                        // itself to an interaction source for hover and
-                        // indication and swallows a press that lands on it: a
-                        // drag begun on the track moved, one begun on the thumb
-                        // did nothing at all. Nothing here consumes pointer
-                        // events, so the press reaches the slider's own drag
-                        // handling.
+                        // A plain circle, because Material3's own thumb stretches
+                        // into a pill while it is being dragged and settles back
+                        // when released. That is deliberate on their part and it
+                        // looks wrong here, on a control that sits still in a
+                        // top bar rather than being the focus of a screen.
+                        //
+                        // Not, as an earlier version of this comment claimed,
+                        // because the default thumb swallows the press. It does
+                        // not: the drag failure was a touch target too small,
+                        // and the size below is what fixed it.
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
@@ -214,6 +207,16 @@ fun WallTopBar(
                                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                     }
                                 )
+                        )
+                    },
+                    track = { sliderState ->
+                        // Thicker than the default 4dp. A taller track is a
+                        // taller touch area, which costs nothing here and
+                        // matters on a control that has to tolerate being
+                        // grabbed by a six-year-old rather than aimed at.
+                        SliderDefaults.Track(
+                            sliderState = sliderState,
+                            modifier = Modifier.height(14.dp)
                         )
                     },
                     modifier = Modifier
