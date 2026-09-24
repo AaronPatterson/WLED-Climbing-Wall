@@ -45,29 +45,61 @@ class HttpWledClient(
 
     private val jsonMediaType = "application/json".toMediaType()
 
-    override suspend fun getOn(): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun getStatus(): WledStatus = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("$baseUrl/json/state")
             .get()
             .build()
 
         httpClient.newCall(request).execute().use { response ->
-            parseOn(response)
+            parseStatus(response)
         }
     }
 
-    override suspend fun setOn(on: Boolean): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun setOn(on: Boolean): WledStatus = withContext(Dispatchers.IO) {
         // WLED's default response to a state-changing POST is just {"success":true};
-        // "v":true asks it to reply with the full state instead, matching what GET returns,
-        // so parseOn() can handle both the same way.
-        val payload = JSONObject().put("on", on).put("v", true).toString()
+        // "v":true asks it to reply with the full state instead, matching what GET
+        // returns, so parseStatus() can handle both the same way.
+        postState(JSONObject().put("on", on))
+    }
+
+    override suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus =
+        withContext(Dispatchers.IO) {
+            // "on" is sent even though only brightness is changing. WLED derives
+            // power from brightness when the field is absent, so omitting it would
+            // wake a wall that was deliberately off.
+            val clamped = brightness.coerceIn(MIN_USABLE_BRIGHTNESS, MAX_BRIGHTNESS)
+            postState(JSONObject().put("bri", clamped).put("on", on))
+        }
+
+    override suspend fun getName(): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$baseUrl/json/info")
+            .get()
+            .build()
+
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
+            }
+            val body = response.body?.string() ?: throw IOException("Empty response from WLED")
+            try {
+                JSONObject(body).getString("name")
+            } catch (e: JSONException) {
+                throw IOException("Unexpected response from ${response.request.url}: $body", e)
+            }
+        }
+    }
+
+    private fun postState(state: JSONObject): WledStatus {
+        val payload = state.put("v", true).toString()
         val request = Request.Builder()
             .url("$baseUrl/json/state")
             .post(payload.toRequestBody(jsonMediaType))
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
-            parseOn(response)
+        return httpClient.newCall(request).execute().use { response ->
+            parseStatus(response)
         }
     }
 
@@ -127,20 +159,21 @@ class HttpWledClient(
             }
         }
 
-    private fun parseOn(response: Response): Boolean {
+    private fun parseStatus(response: Response): WledStatus {
         if (!response.isSuccessful) {
             throw IOException("WLED returned HTTP ${response.code} for ${response.request.url}")
         }
         val body = response.body?.string() ?: throw IOException("Empty response from WLED")
         return try {
-            JSONObject(body).getBoolean("on")
+            val json = JSONObject(body)
+            WledStatus(on = json.getBoolean("on"), brightness = json.getInt("bri"))
         } catch (e: JSONException) {
             // Surface the actual payload so a shape mismatch (e.g. hitting /json instead
             // of /json/state, or a WLED version returning something unexpected) is obvious
             // from the error message alone, instead of needing another round trip.
             throw IOException(
                 "Unexpected response from ${response.request.url} " +
-                    "(no \"on\" field): ${body.take(300)}",
+                    "(expected \"on\" and \"bri\"): ${body.take(300)}",
                 e
             )
         }

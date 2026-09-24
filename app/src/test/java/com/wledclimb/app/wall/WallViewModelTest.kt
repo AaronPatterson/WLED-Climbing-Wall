@@ -1,8 +1,12 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.network.WledStatus
+import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +47,89 @@ class WallViewModelTest {
         assertFalse(wall.hasHoldAt(x = 1, y = 0))
         assertTrue(wall.hasHoldAt(x = 0, y = 1))
         assertEquals(3, wall.holdCount)
+    }
+
+    @Test
+    fun `an unchanged brightness is not sent again`() = runTest {
+        // A drag reports per frame and truncates to an Int, so the same value
+        // arrives several times in a row. Each repeat would rebuild the state
+        // and push another request for a wall already showing it.
+        val client = FakeWledClient(on = true, brightness = 128)
+        val viewModel = WallViewModel(client)
+
+        viewModel.setBrightness(200)
+        runCurrent()
+        assertEquals(listOf(200 to true), client.setBrightnessCalls)
+
+        viewModel.setBrightness(200)
+        viewModel.setBrightness(200)
+        runCurrent()
+        assertEquals(listOf(200 to true), client.setBrightnessCalls)
+
+        // A value that really did change still goes out.
+        viewModel.setBrightness(201)
+        runCurrent()
+        assertEquals(listOf(200 to true, 201 to true), client.setBrightnessCalls)
+    }
+
+    @Test
+    fun `a late confirmation does not drag brightness back`() = runTest {
+        // The reported bug: the slider stuttered mid-drag, and at the top of the
+        // range became unmovable. Requests are conflated, so a reply can confirm
+        // a value the finger has already left. Writing that reply into state
+        // pulled the slider backwards - and at maximum it did so faster than a
+        // drag could move away, which reads as the control being stuck.
+        //
+        // Both replies are held open. Releasing only the first leaves the newer
+        // request still in flight, which is the one moment the stale value could
+        // win - let the newer one finish and state converges either way, which
+        // is how an earlier version of this test managed to pass against the bug
+        // it was written for.
+        val firstReply = CompletableDeferred<Unit>()
+        val secondReply = CompletableDeferred<Unit>()
+        val client = object : WledClient by FakeWledClient(on = true) {
+            override suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus {
+                if (brightness == 100) firstReply.await() else secondReply.await()
+                return WledStatus(on = on, brightness = brightness)
+            }
+        }
+        val viewModel = WallViewModel(client)
+        connectedState(viewModel)
+
+        viewModel.setBrightness(100)
+        runCurrent()
+        viewModel.setBrightness(240)
+        runCurrent()
+        firstReply.complete(Unit)
+        runCurrent()
+
+        val state = viewModel.uiState.value as WallUiState.Connected
+        assertEquals("the newer value should survive the older reply", 240, state.brightness)
+    }
+
+    @Test
+    fun `a failed brightness change does not tear down the screen`() = runTest {
+        // The reported bug: dragging the brightness slider dropped the whole
+        // screen to "couldn't reach the wall", losing the grid and the route.
+        // A dropped brightness request is not evidence the wall has gone - it
+        // is one request among many during a drag.
+        val client = FakeWledClient(on = true)
+        val viewModel = WallViewModel(client)
+        val before = connectedState(viewModel)
+        viewModel.toggleHold(before.wall.segmentIndexAt(x = 0, y = 0))
+        runCurrent()
+
+        client.failWith = IOException("unexpected end of stream")
+        viewModel.setBrightness(200)
+        runCurrent()
+
+        val after = viewModel.uiState.value
+        assertTrue("expected to stay connected, was $after", after is WallUiState.Connected)
+        assertEquals(
+            "the route should survive a failed brightness change",
+            1,
+            (after as WallUiState.Connected).litHolds.size
+        )
     }
 
     @Test

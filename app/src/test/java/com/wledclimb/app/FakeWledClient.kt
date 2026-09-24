@@ -1,6 +1,9 @@
 package com.wledclimb.app
 
+import com.wledclimb.app.network.MAX_BRIGHTNESS
+import com.wledclimb.app.network.MIN_USABLE_BRIGHTNESS
 import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.network.WledStatus
 
 /** A `/json/cfg` body describing one 2x2 panel, enough to build a real Wall from. */
 const val TWO_BY_TWO_CONFIG = """
@@ -18,6 +21,8 @@ const val ONE_DIMENSIONAL_CONFIG = """{"hw":{"led":{"total":30}}}"""
  */
 class FakeWledClient(
     var on: Boolean = false,
+    var brightness: Int = 128,
+    var name: String = "Test wall",
     var config: String = TWO_BY_TWO_CONFIG,
     var gaps: String? = null,
     /** When set, every call throws this instead of returning. */
@@ -25,19 +30,35 @@ class FakeWledClient(
 ) : WledClient {
 
     val setOnCalls = mutableListOf<Boolean>()
+
+    /** Every brightness push, as (brightness, on) so the "on" field can be asserted. */
+    val setBrightnessCalls = mutableListOf<Pair<Int, Boolean>>()
     var getConfigCount = 0
         private set
 
-    override suspend fun getOn(): Boolean {
+    override suspend fun getStatus(): WledStatus {
         failWith?.let { throw it }
-        return on
+        return WledStatus(on = on, brightness = brightness)
     }
 
-    override suspend fun setOn(on: Boolean): Boolean {
+    override suspend fun setOn(on: Boolean): WledStatus {
         failWith?.let { throw it }
         setOnCalls += on
         this.on = on
-        return on
+        return WledStatus(on = on, brightness = brightness)
+    }
+
+    override suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus {
+        failWith?.let { throw it }
+        setBrightnessCalls += brightness to on
+        // Mirrors the real client, which clamps rather than trusting callers.
+        this.brightness = brightness.coerceIn(MIN_USABLE_BRIGHTNESS, MAX_BRIGHTNESS)
+        return WledStatus(on = on, brightness = this.brightness)
+    }
+
+    override suspend fun getName(): String {
+        failWith?.let { throw it }
+        return name
     }
 
     override suspend fun getConfig(): String {

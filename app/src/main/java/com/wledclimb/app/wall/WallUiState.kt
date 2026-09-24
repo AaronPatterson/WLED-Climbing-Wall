@@ -13,9 +13,19 @@ sealed interface WallUiState {
      * what WLED's per-pixel commands address.
      *
      * [selectedColor] is what the next tapped hold will be painted in.
+     *
+     * [brightness] is WLED's master brightness and is independent of [on]:
+     * switching the wall off leaves it where it was, so both are needed to
+     * describe the wall rather than either alone.
+     *
+     * [name] is the controller's own name, shown so the top bar says which
+     * wall is being controlled. It becomes more than decoration once there is
+     * more than one wall to be connected to.
      */
     data class Connected(
         val on: Boolean,
+        val brightness: Int,
+        val name: String,
         val wall: Wall,
         val litHolds: Map<Int, HoldColor> = emptyMap(),
         val selectedColor: HoldColor = HoldColor.Red,

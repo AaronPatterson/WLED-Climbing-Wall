@@ -31,10 +31,47 @@ class HttpWledClientTest {
     private fun client() = HttpWledClient(baseUrl = server.url("").toString().trimEnd('/'))
 
     @Test
-    fun `getOn parses the on field from a successful response`() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":true}"""))
+    fun `setBrightness sends the power state so WLED cannot infer it`() = runBlocking {
+        // WLED derives power from brightness when "on" is absent
+        // (bool on = root["on"] | (bri > 0)), so omitting it would wake a wall
+        // that was deliberately switched off.
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":false,"bri":100}"""))
 
-        assertEquals(true, client().getOn())
+        client().setBrightness(brightness = 100, on = false)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue("brightness should be sent", body.contains("\"bri\":100"))
+        assertTrue("power state should be sent explicitly", body.contains("\"on\":false"))
+    }
+
+    @Test
+    fun `setBrightness never sends zero`() = runBlocking {
+        // Brightness rising from zero is what makes WLED unfreeze every segment
+        // and drop the route. The clamp lives in the client rather than relying
+        // on every caller and every slider to stay off the boundary.
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":true,"bri":8}"""))
+
+        client().setBrightness(brightness = 0, on = true)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue("expected a clamped brightness, got: $body", body.contains("\"bri\":8"))
+    }
+
+    @Test
+    fun `getName reads the controller's own name`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"name":"Climbing Wall"}"""))
+
+        assertEquals("Climbing Wall", client().getName())
+        assertEquals("/json/info", server.takeRequest().path)
+    }
+
+    @Test
+    fun `getStatus parses power and brightness from a successful response`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":true,"bri":172}"""))
+
+        val status = client().getStatus()
+        assertEquals(true, status.on)
+        assertEquals(172, status.brightness)
 
         val request = server.takeRequest()
         assertEquals("GET", request.method)
@@ -42,11 +79,11 @@ class HttpWledClientTest {
     }
 
     @Test
-    fun `getOn throws on a non-2xx response`() = runBlocking {
+    fun `getStatus throws on a non-2xx response`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(500))
 
         try {
-            client().getOn()
+            client().getStatus()
             fail("Expected an IOException")
         } catch (e: IOException) {
             assertTrue(e.message!!.contains("500"))
@@ -54,27 +91,28 @@ class HttpWledClientTest {
     }
 
     @Test
-    fun `getOn throws a descriptive error when the on field is missing`() = runBlocking {
+    fun `getStatus throws a descriptive error when the state is the wrong shape`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"unexpected":true}"""))
 
         try {
-            client().getOn()
+            client().getStatus()
             fail("Expected an IOException")
         } catch (e: IOException) {
             // Per the comment in WledClient: the actual payload should be visible
             // in the message so a shape mismatch is obvious without another round trip.
-            assertTrue(e.message!!.contains("no \"on\" field"))
+            assertTrue(e.message!!.contains("expected \"on\" and \"bri\""))
             assertTrue(e.message!!.contains("unexpected"))
         }
     }
 
     @Test
     fun `setOn posts the desired state and parses the confirmed value back`() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":false}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"on":false,"bri":90}"""))
 
         val result = client().setOn(on = false)
 
-        assertEquals(false, result)
+        assertEquals(false, result.on)
+        assertEquals(90, result.brightness)
         val request = server.takeRequest()
         assertEquals("POST", request.method)
         assertEquals("/json/state", request.path)

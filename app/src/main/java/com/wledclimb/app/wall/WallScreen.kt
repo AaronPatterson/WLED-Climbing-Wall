@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,12 +21,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,9 +41,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +55,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.BuildConfig
 import com.wledclimb.app.R
@@ -56,57 +65,92 @@ import com.wledclimb.app.grid.Wall
 fun WallScreen(
     state: WallUiState,
     onToggle: () -> Unit,
+    onBrightnessChange: (Int) -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
     onColorSelect: (HoldColor) -> Unit,
     onClearWall: () -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    var brightnessOpen by remember { mutableStateOf(false) }
+    // Measured rather than assumed, so the floating brightness row sits under
+    // the bar whatever height the bar turns out to be.
+    var topBarHeight by remember { mutableIntStateOf(0) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Only when connected: with no wall reached there is no name to show,
+        // no brightness to report, and nothing the controls could act on.
+        if (state is WallUiState.Connected) {
+            WallTopBar(
+                modifier = Modifier.onGloballyPositioned { topBarHeight = it.size.height },
+                name = state.name,
+                on = state.on,
+                brightness = state.brightness,
+                enabled = !state.busy,
+                brightnessOpen = brightnessOpen,
+                onBrightnessOpenChange = { brightnessOpen = it },
+                onToggle = onToggle,
+                onBrightnessChange = onBrightnessChange,
+                onChangeController = onChangeController
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // Closes the brightness row on a press anywhere below it, the
+                // way a menu dismisses. Watched on the initial pass and never
+                // consumed, so the press still reaches whatever it landed on -
+                // tapping a hold both paints it and puts the row away, rather
+                // than being swallowed as a dismissal and needing a second tap.
+                .pointerInput(brightnessOpen) {
+                    if (!brightnessOpen) return@pointerInput
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.type == PointerEventType.Press) {
+                                brightnessOpen = false
+                            }
+                        }
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
         when (state) {
             is WallUiState.Connecting -> ConnectingContent()
             is WallUiState.Connected -> ConnectedContent(
                 state = state,
-                onToggle = onToggle,
                 onHoldTap = onHoldTap,
                 onColorSelect = onColorSelect,
                 onClearWall = onClearWall
             )
             is WallUiState.Error -> ErrorContent(problem = state.problem, onRetry = onRetry)
         }
-        // Outside the when: reachable from every state, including when the
-        // controller can't be reached and changing it is the way out.
-        //
-        // The privacy policy sits beside it because Play's Families policy
-        // requires the link inside the app as well as on the store listing,
-        // and an app aimed at children has to be able to show it whatever
-        // state it is in - including when it cannot reach the wall.
-        val uriHandler = LocalUriHandler.current
-        Row(modifier = Modifier.padding(top = 32.dp)) {
-            TextButton(onClick = onChangeController) {
+        // Not connected, so the top bar and its menu are absent - changing the
+        // controller has to stay reachable, because it is the way out of an
+        // address that no longer answers.
+        if (state !is WallUiState.Connected) {
+            TextButton(onClick = onChangeController, modifier = Modifier.padding(top = 32.dp)) {
                 Text(text = stringResource(R.string.wall_change_controller))
             }
-            TextButton(onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) }) {
-                Text(text = stringResource(R.string.wall_privacy_policy))
-            }
         }
-        // Builds get sideloaded onto several devices, so "which one is this?"
-        // needs an answer that doesn't involve a cable. Also the tell for an
-        // update that didn't take: the old version is still showing here.
-        // Outside the when for the same reason as the button above - a build
-        // that can't reach the wall is exactly one you might be checking.
-        Text(
-            text = stringResource(R.string.wall_version, BuildConfig.VERSION_NAME),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        }
+    }
+        // Drawn over the content, not above it in the layout. Inline, this
+        // pushed the grid down while open and let it spring back on close -
+        // and since it closes on a tap, aiming at a hold slid the grid up
+        // under the finger before the tap resolved, painting the hold below
+        // the one intended.
+        if (state is WallUiState.Connected && brightnessOpen) {
+            BrightnessControl(
+                brightness = state.brightness,
+                enabled = !state.busy,
+                onBrightnessChange = onBrightnessChange,
+                modifier = Modifier.offset { IntOffset(0, topBarHeight) }
+            )
+        }
     }
 }
 
@@ -122,34 +166,10 @@ private fun ColumnScope.ConnectingContent() {
 @Composable
 private fun ColumnScope.ConnectedContent(
     state: WallUiState.Connected,
-    onToggle: () -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
     onColorSelect: (HoldColor) -> Unit,
     onClearWall: () -> Unit
 ) {
-    val statusColor = if (state.on) WallStatusColors.on else WallStatusColors.off
-    val statusText = stringResource(if (state.on) R.string.wall_is_on else R.string.wall_is_off)
-
-    // Read as one phrase by a screen reader: the dot repeats what the text
-    // already says, so it's hidden rather than announced.
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.semantics(mergeDescendants = true) {}
-    ) {
-        Box(
-            modifier = Modifier
-                .size(16.dp)
-                .background(color = statusColor, shape = CircleShape)
-                .clearAndSetSemantics { }
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = statusText,
-            color = statusColor,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-    }
     var scale by remember { mutableFloatStateOf(MIN_GRID_SCALE) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(Size.Zero) }
@@ -186,15 +206,6 @@ private fun ColumnScope.ConnectedContent(
         onSelect = onColorSelect,
         modifier = Modifier.padding(top = 16.dp)
     )
-    Button(
-        onClick = onToggle,
-        enabled = !state.busy,
-        modifier = Modifier.padding(top = 16.dp)
-    ) {
-        Text(
-            text = stringResource(if (state.on) R.string.wall_turn_off else R.string.wall_turn_on)
-        )
-    }
 }
 
 @Composable
@@ -378,15 +389,28 @@ private fun GridControls(
     onZoom: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = { onZoom(1f / ZOOM_STEP) }, enabled = scale > MIN_GRID_SCALE) {
-            Text(text = stringResource(R.string.wall_zoom_out))
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Icons rather than labels: three words of chrome under the grid read as
+        // a sentence to be parsed, and none of them is the point of the screen.
+        // The labels survive as content descriptions, so nothing is lost to a
+        // screen reader.
+        IconButton(onClick = { onZoom(1f / ZOOM_STEP) }, enabled = scale > MIN_GRID_SCALE) {
+            Icon(
+                painter = painterResource(R.drawable.ic_zoom_out),
+                contentDescription = stringResource(R.string.wall_zoom_out)
+            )
         }
-        TextButton(onClick = { onZoom(ZOOM_STEP) }, enabled = scale < MAX_GRID_SCALE) {
-            Text(text = stringResource(R.string.wall_zoom_in))
+        IconButton(onClick = { onZoom(ZOOM_STEP) }, enabled = scale < MAX_GRID_SCALE) {
+            Icon(
+                painter = painterResource(R.drawable.ic_zoom_in),
+                contentDescription = stringResource(R.string.wall_zoom_in)
+            )
         }
-        TextButton(onClick = onClearWall, enabled = canClear) {
-            Text(text = stringResource(R.string.wall_clear))
+        IconButton(onClick = onClearWall, enabled = canClear) {
+            Icon(
+                painter = painterResource(R.drawable.ic_clear_wall),
+                contentDescription = stringResource(R.string.wall_clear)
+            )
         }
     }
 }
@@ -452,7 +476,7 @@ private val MAX_SWATCH_SIZE = 56.dp
  * cannot lapse. Changing what it says needs no store review; changing this
  * address does, since Play holds it as part of the listing.
  */
-private const val PRIVACY_POLICY_URL =
+internal const val PRIVACY_POLICY_URL =
     "https://aaronpatterson.github.io/WLED-Climbing-Wall/privacy.html"
 
 private val HoldColor.displayColor: Color
