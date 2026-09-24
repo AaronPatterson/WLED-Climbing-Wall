@@ -195,6 +195,14 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
      */
     fun setBrightness(brightness: Int) {
         val current = _uiState.value as? WallUiState.Connected ?: return
+        // A drag reports once per frame, and consecutive frames routinely land
+        // on the same integer once the slider's float is truncated - a 2s drag
+        // at 120Hz reports 250 times across at most 248 distinct values. The
+        // write below would be suppressed anyway, since an unchanged copy
+        // compares equal and StateFlow drops it, but establishing that costs a
+        // structural comparison of the whole grid and route every frame. The
+        // conflated send would collapse too. Neither is worth reaching.
+        if (brightness == current.brightness) return
         // Moves with the finger. The request that follows is conflated, so the
         // slider stays smooth whatever the controller is keeping up with.
         _uiState.value = current.copy(brightness = brightness)

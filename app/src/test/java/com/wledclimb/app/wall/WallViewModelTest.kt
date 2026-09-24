@@ -50,6 +50,29 @@ class WallViewModelTest {
     }
 
     @Test
+    fun `an unchanged brightness is not sent again`() = runTest {
+        // A drag reports per frame and truncates to an Int, so the same value
+        // arrives several times in a row. Each repeat would rebuild the state
+        // and push another request for a wall already showing it.
+        val client = FakeWledClient(on = true, brightness = 128)
+        val viewModel = WallViewModel(client)
+
+        viewModel.setBrightness(200)
+        runCurrent()
+        assertEquals(listOf(200 to true), client.setBrightnessCalls)
+
+        viewModel.setBrightness(200)
+        viewModel.setBrightness(200)
+        runCurrent()
+        assertEquals(listOf(200 to true), client.setBrightnessCalls)
+
+        // A value that really did change still goes out.
+        viewModel.setBrightness(201)
+        runCurrent()
+        assertEquals(listOf(200 to true, 201 to true), client.setBrightnessCalls)
+    }
+
+    @Test
     fun `a late confirmation does not drag brightness back`() = runTest {
         // The reported bug: the slider stuttered mid-drag, and at the top of the
         // range became unmovable. Requests are conflated, so a reply can confirm
