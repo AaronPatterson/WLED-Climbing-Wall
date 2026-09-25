@@ -2,7 +2,7 @@ package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.Wall
 import com.wledclimb.app.grid.fingerprint
-import com.wledclimb.app.wall.HoldColor
+import com.wledclimb.app.palette.HoldColor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
