@@ -24,6 +24,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,20 +62,32 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.wledclimb.app.BuildConfig
 import com.wledclimb.app.R
+import com.wledclimb.app.grid.fingerprint
+import com.wledclimb.app.storage.StoredRoute
 import com.wledclimb.app.grid.Wall
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WallScreen(
     state: WallUiState,
+    routes: List<StoredRoute>,
     onToggle: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
     onHoldTap: (segmentIndex: Int) -> Unit,
     onColorSelect: (HoldColor) -> Unit,
     onClearWall: () -> Unit,
     onRetry: () -> Unit,
-    onChangeController: () -> Unit
+    onChangeController: () -> Unit,
+    onLoadRoute: (Long) -> Unit,
+    onSaveRoute: (name: String, routeId: Long?) -> Unit,
+    onRenameRoute: (Long, String) -> Unit,
+    onDeleteRoute: (Long) -> Unit
 ) {
     var brightnessOpen by remember { mutableStateOf(false) }
+    var routesOpen by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<StoredRoute?>(null) }
+    var deleting by remember { mutableStateOf<StoredRoute?>(null) }
     // Measured rather than assumed, so the floating brightness row sits under
     // the bar whatever height the bar turns out to be.
     var topBarHeight by remember { mutableIntStateOf(0) }
@@ -93,7 +107,8 @@ fun WallScreen(
                 onBrightnessOpenChange = { brightnessOpen = it },
                 onToggle = onToggle,
                 onBrightnessChange = onBrightnessChange,
-                onChangeController = onChangeController
+                onChangeController = onChangeController,
+                onOpenRoutes = { routesOpen = true }
             )
         }
         Column(
@@ -152,6 +167,65 @@ fun WallScreen(
                 modifier = Modifier.offset { IntOffset(0, topBarHeight) }
             )
         }
+    }
+
+    // A sheet for now. navigation.md has this list living permanently beside
+    // the grid on a tablet, which is a change to where RoutesPanel is put
+    // rather than to the panel itself.
+    if (state is WallUiState.Connected && routesOpen) {
+        ModalBottomSheet(onDismissRequest = { routesOpen = false }) {
+            RoutesPanel(
+                routes = routes,
+                selectedRouteId = state.selectedRouteId,
+                currentFingerprint = state.wall.fingerprint,
+                // No stored wall means nothing for a route to belong to. The
+                // save action goes quiet rather than failing when pressed.
+                canSave = state.wallId != null,
+                onLoad = {
+                    routesOpen = false
+                    onLoadRoute(it)
+                },
+                onSave = { saving = true },
+                onRename = { renaming = it },
+                onDelete = { deleting = it }
+            )
+        }
+    }
+
+    if (state is WallUiState.Connected && saving) {
+        val open = routes.firstOrNull { it.id == state.selectedRouteId }
+        SaveRouteDialog(
+            initialName = open?.name.orEmpty(),
+            canUpdate = open != null,
+            onDismiss = { saving = false },
+            onSave = { name, asNew ->
+                saving = false
+                routesOpen = false
+                onSaveRoute(name, if (asNew) null else open?.id)
+            }
+        )
+    }
+
+    renaming?.let { route ->
+        RenameRouteDialog(
+            initialName = route.name,
+            onDismiss = { renaming = null },
+            onRename = { name ->
+                renaming = null
+                onRenameRoute(route.id, name)
+            }
+        )
+    }
+
+    deleting?.let { route ->
+        DeleteRouteDialog(
+            name = route.name,
+            onDismiss = { deleting = null },
+            onDelete = {
+                deleting = null
+                onDeleteRoute(route.id)
+            }
+        )
     }
 }
 

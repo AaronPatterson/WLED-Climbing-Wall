@@ -69,7 +69,8 @@ fun WallTopBar(
     onBrightnessOpenChange: (Boolean) -> Unit,
     onToggle: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
-    onChangeController: () -> Unit
+    onChangeController: () -> Unit,
+    onOpenRoutes: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
@@ -110,6 +111,15 @@ fun WallTopBar(
                 }
             },
             actions = {
+                // Routes sit next to the wall controls rather than in the
+                // overflow menu: opening a route is the common action, and
+                // the menu is where the rare ones live.
+                IconButton(onClick = onOpenRoutes, enabled = enabled) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_routes),
+                        contentDescription = stringResource(R.string.routes_open)
+                    )
+                }
                 IconButton(
                     onClick = { onBrightnessOpenChange(!brightnessOpen) },
                     enabled = enabled
