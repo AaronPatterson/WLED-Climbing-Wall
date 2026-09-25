@@ -41,6 +41,13 @@ class WallRepository(private val walls: WallDao) {
     suspend fun selectRoute(wallId: Long, routeId: Long?) =
         walls.setLastSelectedRoute(wallId, routeId)
 
+    /**
+     * Records unsaved work, or clears it with null once the wall matches a
+     * saved route again.
+     */
+    suspend fun saveDraft(wallId: Long, draftHolds: String?) =
+        walls.setDraft(wallId, draftHolds)
+
     suspend fun findOrCreate(
         identity: WledIdentity,
         controllerAddress: String,

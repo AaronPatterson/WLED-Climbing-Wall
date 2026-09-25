@@ -67,6 +67,13 @@ class InMemoryWallDao : WallDao {
         }
     }
 
+    override suspend fun setDraft(wallId: Long, draftHolds: String?) {
+        failWith?.let { throw it }
+        rows.value = rows.value.map {
+            if (it.id == wallId) it.copy(draftHolds = draftHolds) else it
+        }
+    }
+
     override suspend fun delete(id: Long) {
         rows.value = rows.value.filterNot { it.id == id }
     }

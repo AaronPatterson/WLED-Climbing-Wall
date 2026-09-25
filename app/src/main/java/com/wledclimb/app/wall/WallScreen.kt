@@ -77,6 +77,7 @@ fun WallScreen(
     onClearWall: () -> Unit,
     onRetry: () -> Unit,
     onChangeController: () -> Unit,
+    onNewRoute: () -> Unit,
     onLoadRoute: (Long) -> Unit,
     onSaveRoute: (name: String, routeId: Long?) -> Unit,
     onRenameRoute: (Long, String) -> Unit,
@@ -86,6 +87,11 @@ fun WallScreen(
     var routesOpen by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<StoredRoute?>(null) }
+    // Held while the "save first?" question is on screen, and run once it is
+    // answered. Switching away from unsaved work is the only place the app
+    // can silently lose something someone made.
+    var pending by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var afterSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     var deleting by remember { mutableStateOf<StoredRoute?>(null) }
     // Measured rather than assumed, so the floating brightness row sits under
     // the bar whatever height the bar turns out to be.
@@ -107,7 +113,9 @@ fun WallScreen(
                 onToggle = onToggle,
                 onBrightnessChange = onBrightnessChange,
                 onChangeController = onChangeController,
-                onOpenRoutes = { routesOpen = true }
+                onOpenRoutes = { routesOpen = true },
+                routeName = routes.firstOrNull { it.id == state.selectedRouteId }?.name,
+                modified = state.modified
             )
         }
         Column(
@@ -180,9 +188,19 @@ fun WallScreen(
                 // No stored wall means nothing for a route to belong to. The
                 // save action goes quiet rather than failing when pressed.
                 canSave = state.wallId != null,
-                onLoad = {
-                    routesOpen = false
-                    onLoadRoute(it)
+                onLoad = { routeId ->
+                    val load = {
+                        routesOpen = false
+                        onLoadRoute(routeId)
+                    }
+                    if (state.modified) pending = load else load()
+                },
+                onNew = {
+                    val new = {
+                        routesOpen = false
+                        onNewRoute()
+                    }
+                    if (state.modified) pending = new else new()
                 },
                 onSave = { saving = true },
                 onRename = { renaming = it },
@@ -196,13 +214,40 @@ fun WallScreen(
         SaveRouteDialog(
             initialName = open?.name.orEmpty(),
             canUpdate = open != null,
-            onDismiss = { saving = false },
+            onDismiss = {
+                saving = false
+                afterSave = null
+            },
             onSave = { name, asNew ->
                 saving = false
                 routesOpen = false
                 onSaveRoute(name, if (asNew) null else open?.id)
+                afterSave?.invoke()
+                afterSave = null
             }
         )
+    }
+
+    if (state is WallUiState.Connected) {
+        pending?.let { action ->
+            val open = routes.firstOrNull { it.id == state.selectedRouteId }
+            UnsavedChangesDialog(
+                routeName = open?.name,
+                onCancel = { pending = null },
+                onDiscard = {
+                    pending = null
+                    action()
+                },
+                onSave = {
+                    pending = null
+                    // Straight to the save dialog, which then runs the action
+                    // it interrupted - so answering "save" does not also mean
+                    // losing the thing you were trying to open.
+                    afterSave = action
+                    saving = true
+                }
+            )
+        }
     }
 
     renaming?.let { route ->

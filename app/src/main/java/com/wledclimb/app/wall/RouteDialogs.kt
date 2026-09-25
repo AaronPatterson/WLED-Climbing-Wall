@@ -128,3 +128,39 @@ fun DeleteRouteDialog(
         }
     )
 }
+
+/**
+ * Asked before switching away from unsaved work.
+ *
+ * Three answers rather than two, because "no" is ambiguous here: not saving
+ * and not switching are different intentions, and a dialog that treats them as
+ * one will eventually throw away a route on someone's behalf. Cancel is the
+ * dismissal, so tapping outside keeps the work.
+ */
+@Composable
+fun UnsavedChangesDialog(
+    routeName: String?,
+    onCancel: () -> Unit,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = {
+            Text(
+                if (routeName == null) {
+                    stringResource(R.string.routes_discard_untitled_title)
+                } else {
+                    stringResource(R.string.routes_discard_title, routeName)
+                }
+            )
+        },
+        text = { Text(stringResource(R.string.routes_discard_body)) },
+        confirmButton = {
+            TextButton(onClick = onSave) { Text(stringResource(R.string.routes_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDiscard) { Text(stringResource(R.string.routes_discard)) }
+        }
+    )
+}

@@ -45,6 +45,7 @@ fun WallRoute(wledBaseUrl: String, onChangeController: () -> Unit) {
         onClearWall = wallViewModel::clearWall,
         onRetry = wallViewModel::refresh,
         onChangeController = onChangeController,
+        onNewRoute = wallViewModel::newRoute,
         onLoadRoute = wallViewModel::loadRoute,
         onSaveRoute = wallViewModel::saveRoute,
         onRenameRoute = wallViewModel::renameRoute,
