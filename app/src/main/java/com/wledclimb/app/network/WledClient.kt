@@ -29,8 +29,13 @@ interface WledClient {
      */
     suspend fun setBrightness(brightness: Int, on: Boolean): WledStatus
 
-    /** The controller's own name, used to label the wall. */
-    suspend fun getName(): String
+    /**
+     * The controller's name and hardware id, both from `/json/info`.
+     *
+     * Read together because they arrive in the same response, and because the
+     * name alone cannot identify a wall - it is free text someone can change.
+     */
+    suspend fun getIdentity(): WledIdentity
 
     /** Raw JSON from `/json/cfg` (grid layout, LED count, segments). */
     suspend fun getConfig(): String

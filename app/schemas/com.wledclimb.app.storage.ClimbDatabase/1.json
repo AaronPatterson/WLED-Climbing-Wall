@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ef73ce536a00997b3a77a6d14b376e48",
+    "identityHash": "9d7fa667a1bffdbda61701edb41e434e",
     "entities": [
       {
         "tableName": "walls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `controllerAddress` TEXT NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `holdGrid` TEXT NOT NULL, `lastSelectedRouteId` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `controllerMac` TEXT, `controllerAddress` TEXT NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `holdGrid` TEXT NOT NULL, `lastSelectedRouteId` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -19,6 +19,11 @@
             "columnName": "name",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "controllerMac",
+            "columnName": "controllerMac",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "controllerAddress",
@@ -55,7 +60,18 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_walls_controllerMac",
+            "unique": true,
+            "columnNames": [
+              "controllerMac"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_walls_controllerMac` ON `${TABLE_NAME}` (`controllerMac`)"
+          }
+        ]
       },
       {
         "tableName": "routes",
@@ -144,7 +160,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ef73ce536a00997b3a77a6d14b376e48')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d7fa667a1bffdbda61701edb41e434e')"
     ]
   }
 }

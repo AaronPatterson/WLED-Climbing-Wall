@@ -12,7 +12,13 @@ interface WallDao {
     @Query("SELECT * FROM walls WHERE id = :id")
     suspend fun byId(id: Long): StoredWall?
 
-    /** Used when a controller is reached, to find the wall it belongs to. */
+    /**
+     * The wall a controller belongs to. Identity, so this is the lookup that
+     * matters - the address one exists only for controllers with no MAC.
+     */
+    @Query("SELECT * FROM walls WHERE controllerMac = :mac")
+    suspend fun byMac(mac: String): StoredWall?
+
     @Query("SELECT * FROM walls WHERE controllerAddress = :address LIMIT 1")
     suspend fun byAddress(address: String): StoredWall?
 

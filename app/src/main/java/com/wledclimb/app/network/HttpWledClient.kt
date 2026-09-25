@@ -72,7 +72,7 @@ class HttpWledClient(
             postState(JSONObject().put("bri", clamped).put("on", on))
         }
 
-    override suspend fun getName(): String = withContext(Dispatchers.IO) {
+    override suspend fun getIdentity(): WledIdentity = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("$baseUrl/json/info")
             .get()
@@ -84,7 +84,15 @@ class HttpWledClient(
             }
             val body = response.body?.string() ?: throw IOException("Empty response from WLED")
             try {
-                JSONObject(body).getString("name")
+                val info = JSONObject(body)
+                // The name is required - without it there is nothing to label
+                // the wall with, and its absence means this is not WLED. The
+                // MAC is optional here so an old or unusual firmware degrades
+                // to address matching rather than failing to connect at all.
+                WledIdentity(
+                    name = info.getString("name"),
+                    mac = info.optString("mac", "")
+                )
             } catch (e: JSONException) {
                 throw IOException("Unexpected response from ${response.request.url}: $body", e)
             }

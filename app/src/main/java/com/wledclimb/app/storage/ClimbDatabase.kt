@@ -23,6 +23,22 @@ abstract class ClimbDatabase : RoomDatabase() {
     abstract fun routes(): RouteDao
 
     companion object {
+        @Volatile
+        private var instance: ClimbDatabase? = null
+
+        /**
+         * The one database for the process.
+         *
+         * Room tolerates several instances over the same file but each opens
+         * its own connection and keeps its own invalidation tracker, so a write
+         * through one would not wake a Flow collected from another - queries
+         * that simply never re-emit, which is a miserable thing to debug.
+         */
+        fun instance(context: Context): ClimbDatabase =
+            instance ?: synchronized(this) {
+                instance ?: open(context).also { instance = it }
+            }
+
         fun open(context: Context): ClimbDatabase =
             Room.databaseBuilder(
                 context.applicationContext,

@@ -7,6 +7,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -58,11 +59,30 @@ class HttpWledClientTest {
     }
 
     @Test
-    fun `getName reads the controller's own name`() = runBlocking {
+    fun `getIdentity reads the controller's name and MAC`() = runBlocking {
+        // Trimmed from the real controller's /json/info.
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"ver":"16.0.1","name":"Climbing Wall","mac":"b0cbd8e23458","ip":"192.168.30.49"}"""
+            )
+        )
+
+        val identity = client().getIdentity()
+        assertEquals("Climbing Wall", identity.name)
+        assertEquals("b0cbd8e23458", identity.mac)
+        assertEquals("/json/info", server.takeRequest().path)
+    }
+
+    @Test
+    fun `a controller reporting no MAC yields an empty one rather than failing`() = runBlocking {
+        // WLED always sends one, but firmware old enough not to should still
+        // connect - it falls back to matching the wall on its address.
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"name":"Climbing Wall"}"""))
 
-        assertEquals("Climbing Wall", client().getName())
-        assertEquals("/json/info", server.takeRequest().path)
+        val identity = client().getIdentity()
+        assertEquals("Climbing Wall", identity.name)
+        assertEquals("", identity.mac)
+        assertFalse(identity.hasStableId)
     }
 
     @Test
