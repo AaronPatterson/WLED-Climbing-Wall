@@ -12,6 +12,7 @@ import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledIdentity
 import com.wledclimb.app.network.WledIdentityException
 import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.storage.RouteHolds
 import com.wledclimb.app.storage.RouteRepository
 import com.wledclimb.app.storage.StoredRoute
 import com.wledclimb.app.storage.StoredWall
@@ -85,6 +86,16 @@ class WallViewModel(
      */
     private var requestedBrightness: Int? = null
 
+    /**
+     * The open route's holds as they are saved, against which "modified" is
+     * judged. Empty for a route nobody has saved yet, which is the right
+     * baseline: a blank wall is unmodified, and the first hold makes it a
+     * draft worth keeping.
+     *
+     * Not persisted - it is recovered from the open route on connect.
+     */
+    private var savedHolds: String = ""
+
     init {
         refresh()
         viewModelScope.launch {
@@ -123,9 +134,9 @@ class WallViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = WallUiState.Connecting
-            // The route the wall was last showing, restored once the state is
-            // in place - loadRoute reads it, so it cannot run any earlier.
-            var lastSelected: Long? = null
+            // What the wall was left showing, restored once the state is in
+            // place because the restore reads it.
+            var restore: StoredWall? = null
             _uiState.value = try {
                 // The three reads don't depend on each other, and run against a
                 // small controller over Wi-Fi - in sequence their connect timeouts
@@ -140,7 +151,7 @@ class WallViewModel(
                         gaps = gaps.await()?.let { parseGaps(it) }
                     )
                     val stored = storedWall(identity.await(), wall)
-                    lastSelected = stored?.lastSelectedRouteId
+                    restore = stored
                     WallUiState.Connected(
                         on = status.await().on,
                         brightness = status.await().brightness,
@@ -156,14 +167,7 @@ class WallViewModel(
                 WallUiState.Error(problemFor(e))
             }
 
-            // Reopening the app comes back to the route it was left on rather
-            // than to a blank wall. Pushed, not merely displayed: everywhere
-            // else in here what the app shows is what it last sent, and a
-            // screen showing holds it had not pushed would be the one place
-            // that is not true. The app cannot read the wall back to check -
-            // WLED answers /json/live with 501 - so asserting the state it
-            // knows about beats displaying a guess.
-            lastSelected?.let { loadRoute(it) }
+            restore?.let { restoreWorkingState(it) }
         }
     }
 
@@ -189,6 +193,36 @@ class WallViewModel(
             Log.e(TAG, "storing the wall failed; routes cannot be saved", e)
             null
         }
+
+    /**
+     * Puts back whatever the wall was left showing, saved or not.
+     *
+     * A draft wins over the route it came from: unsaved work is the more
+     * recent truth, and discarding it because the app closed would be exactly
+     * the loss the draft exists to prevent. Nothing is saved on the way
+     * through - the route on disk stays as it was, and the wall comes back
+     * looking like the edit was made a moment ago.
+     *
+     * Pushed, not merely displayed. Everywhere else in here what the app shows
+     * is what it last sent, and a screen showing holds it had not pushed would
+     * be the one place that is not true. The app cannot read the wall back to
+     * check either - WLED answers /json/live with 501 - so asserting the state
+     * it knows about beats displaying a guess.
+     */
+    private suspend fun restoreWorkingState(stored: StoredWall) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        val route = stored.lastSelectedRouteId?.let { routes.byId(it) }
+
+        // Empty when the route has been deleted, here or from another device.
+        // The draft is still worth restoring: it is what someone was building.
+        savedHolds = route?.holds.orEmpty()
+        val working = stored.draftHolds ?: savedHolds
+        if (working.isEmpty() && route == null) return
+
+        _uiState.value = current.copy(selectedRouteId = route?.id)
+        val latest = _uiState.value as? WallUiState.Connected ?: return
+        showAndPush(latest, RouteHolds.parseSegments(working, latest.wall), "restore")
+    }
 
     /** Picks the colour the next tapped hold will be painted in. */
     fun selectColor(color: HoldColor) {
@@ -248,7 +282,15 @@ class WallViewModel(
                     wall = current.wall,
                     routeId = routeId
                 )
+                // What is on the wall is now what is on disk, so it stops
+                // counting as unsaved work: the flag in state has to be
+                // cleared as well as the baseline it is judged against.
+                savedHolds = RouteHolds.serializeSegments(current.litHolds, current.wall)
+                (_uiState.value as? WallUiState.Connected)?.let {
+                    _uiState.value = it.copy(modified = false)
+                }
                 select(saved)
+                clearDraft()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -277,9 +319,43 @@ class WallViewModel(
                 null
             } ?: return@launch
 
+            // Set before the push: showAndPush judges "modified" against this,
+            // so a freshly opened route reads as unmodified rather than as an
+            // edit of whatever was on the wall a moment ago.
+            savedHolds = routes.byId(routeId)?.holds.orEmpty()
             select(routeId)
             val latest = _uiState.value as? WallUiState.Connected ?: return@launch
             showAndPush(latest, holds, "loadRoute($routeId)")
+        }
+    }
+
+    /**
+     * Clears the wall and starts a route belonging to nothing.
+     *
+     * Not the same as [clearWall], which empties the route that is open and
+     * leaves it open - that is an edit, and it counts as one. This closes the
+     * route first, so what follows is new work rather than the old route
+     * emptied.
+     */
+    fun newRoute() {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+
+        viewModelScope.launch {
+            savedHolds = ""
+            select(null)
+            val latest = _uiState.value as? WallUiState.Connected ?: return@launch
+            showAndPush(latest, emptyMap(), "newRoute()")
+        }
+    }
+
+    private suspend fun clearDraft() {
+        val wallId = (_uiState.value as? WallUiState.Connected)?.wallId ?: return
+        try {
+            walls.saveDraft(wallId, null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "clearing the draft failed", e)
         }
     }
 
@@ -355,7 +431,24 @@ class WallViewModel(
         holds: Map<Int, HoldColor>,
         description: String
     ) {
-        _uiState.value = current.copy(litHolds = holds)
+        val asStored = RouteHolds.serializeSegments(holds, current.wall)
+        val modified = asStored != savedHolds
+        _uiState.value = current.copy(litHolds = holds, modified = modified)
+
+        // Every hold change passes through here, so this is the one place the
+        // draft has to be written. Unsaved work then survives the app being
+        // closed or killed without anyone having to remember to save.
+        current.wallId?.let { wallId ->
+            viewModelScope.launch {
+                try {
+                    walls.saveDraft(wallId, asStored.takeIf { modified })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "recording the draft failed", e)
+                }
+            }
+        }
 
         viewModelScope.launch {
             try {

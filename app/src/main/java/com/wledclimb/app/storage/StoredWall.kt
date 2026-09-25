@@ -20,6 +20,17 @@ import androidx.room.PrimaryKey
  * suggesting otherwise would invite someone to round-trip it and shift every
  * LED after the first one.
  *
+ * [draftHolds] is what is on the wall right now when that differs from the
+ * route it came from - work in progress that nobody has saved. It is written
+ * on every edit so that closing the app, or it being killed in the background,
+ * does not throw away a half-built route. Null means the wall matches
+ * [lastSelectedRouteId] exactly, or that there is nothing on it.
+ *
+ * It lives on the wall rather than on a route because a draft need not belong
+ * to one: the first route anyone builds is a draft with nothing behind it, and
+ * it deserves to survive being interrupted just as much as an edit to a saved
+ * route does.
+ *
  * [lastSelectedRouteId] lives here rather than in app settings so that it is
  * per wall by construction. Routes belong to the wall they were drawn on and
  * are not meaningfully portable between walls, so there is no sensible global
@@ -76,5 +87,6 @@ data class StoredWall(
     val width: Int,
     val height: Int,
     val holdGrid: String,
-    val lastSelectedRouteId: Long? = null
+    val lastSelectedRouteId: Long? = null,
+    val draftHolds: String? = null
 )

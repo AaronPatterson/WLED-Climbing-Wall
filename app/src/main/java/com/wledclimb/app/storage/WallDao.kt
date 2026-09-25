@@ -37,6 +37,14 @@ interface WallDao {
     @Query("UPDATE walls SET lastSelectedRouteId = :routeId WHERE id = :wallId")
     suspend fun setLastSelectedRoute(wallId: Long, routeId: Long?)
 
+    /**
+     * Narrow like [setLastSelectedRoute], and for the same reason: this is
+     * written on every hold tap, and a whole-row update would race with the
+     * wall's shape being refreshed on a reconnect.
+     */
+    @Query("UPDATE walls SET draftHolds = :draftHolds WHERE id = :wallId")
+    suspend fun setDraft(wallId: Long, draftHolds: String?)
+
     @Query("DELETE FROM walls WHERE id = :id")
     suspend fun delete(id: Long)
 }
