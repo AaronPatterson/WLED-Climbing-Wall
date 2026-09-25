@@ -22,6 +22,17 @@ data class Wall(
     /** Position in WLED's 2D segment buffer - what per-pixel commands address. */
     fun segmentIndexAt(x: Int, y: Int): Int = x + y * width
 
+    /**
+     * The grid position a segment index refers to - the inverse of
+     * [segmentIndexAt], and only meaningful against the same [width].
+     *
+     * Saved routes are stored as positions rather than indices for exactly
+     * that reason (see [GridPosition]), so this is the boundary where the
+     * wire's indices become coordinates and back.
+     */
+    fun positionOf(segmentIndex: Int): GridPosition =
+        GridPosition(x = segmentIndex % width, y = segmentIndex / width)
+
     /** Size of that buffer, i.e. the range a "clear the whole wall" must cover. */
     val segmentSize: Int get() = width * height
 

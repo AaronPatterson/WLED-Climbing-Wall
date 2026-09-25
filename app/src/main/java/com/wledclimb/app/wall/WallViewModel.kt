@@ -12,11 +12,20 @@ import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledIdentity
 import com.wledclimb.app.network.WledIdentityException
 import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.storage.RouteRepository
+import com.wledclimb.app.storage.StoredRoute
 import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,11 +41,29 @@ private const val TAG = "WallViewModel"
 class WallViewModel(
     private val client: WledClient,
     private val walls: WallRepository,
+    private val routes: RouteRepository,
     private val controllerAddress: String
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WallUiState>(WallUiState.Connecting)
     val uiState: StateFlow<WallUiState> = _uiState.asStateFlow()
+
+    /**
+     * Routes saved for the connected wall, newest first.
+     *
+     * Follows the wall rather than being loaded once: switching controllers
+     * swaps the list, and a wall that could not be stored has none. Collected
+     * eagerly so the list is ready when the UI asks, since it is the landing
+     * content rather than something opened on demand.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val savedRoutes: StateFlow<List<StoredRoute>> = _uiState
+        .map { (it as? WallUiState.Connected)?.wallId }
+        .distinctUntilChanged()
+        .flatMapLatest { wallId ->
+            if (wallId == null) flowOf(emptyList()) else routes.forWall(wallId)
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
      * Pending brightness, at most one waiting.
@@ -184,6 +211,119 @@ class WallViewModel(
         if (current.litHolds.isEmpty()) return
 
         showAndPush(current, emptyMap(), "clearWall()")
+    }
+
+    /**
+     * Saves what is on the wall, overwriting [routeId] or creating a route.
+     *
+     * Does nothing without a stored wall to hang it off. That is the case
+     * where the database could not be opened, and it is reported by the save
+     * action being unavailable rather than by failing here.
+     */
+    fun saveRoute(name: String, routeId: Long? = null) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        val wallId = current.wallId ?: return
+
+        viewModelScope.launch {
+            try {
+                val saved = routes.save(
+                    wallId = wallId,
+                    name = name,
+                    holds = current.litHolds,
+                    wall = current.wall,
+                    routeId = routeId
+                )
+                select(saved)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "saveRoute($name) failed", e)
+            }
+        }
+    }
+
+    /**
+     * Shows a saved route and pushes it to the wall.
+     *
+     * Holds the wall no longer has are dropped on the way through - see
+     * [RouteRepository.load]. The route keeps them, so they return if the wall
+     * does.
+     */
+    fun loadRoute(routeId: Long) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+
+        viewModelScope.launch {
+            val holds = try {
+                routes.load(routeId, current.wall)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "loadRoute($routeId) failed", e)
+                null
+            } ?: return@launch
+
+            select(routeId)
+            val latest = _uiState.value as? WallUiState.Connected ?: return@launch
+            showAndPush(latest, holds, "loadRoute($routeId)")
+        }
+    }
+
+    fun renameRoute(routeId: Long, name: String) {
+        viewModelScope.launch {
+            try {
+                routes.rename(routeId, name)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "renameRoute($routeId) failed", e)
+            }
+        }
+    }
+
+    /**
+     * Deletes a route, leaving the wall lit as it is.
+     *
+     * Clearing the wall as well would be a second, unasked-for action - and an
+     * unrecoverable one, since the route is gone by then. Whoever deleted it
+     * can still see what they deleted.
+     */
+    fun deleteRoute(routeId: Long) {
+        viewModelScope.launch {
+            try {
+                routes.delete(routeId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteRoute($routeId) failed", e)
+                return@launch
+            }
+
+            val current = _uiState.value as? WallUiState.Connected ?: return@launch
+            if (current.selectedRouteId == routeId) {
+                _uiState.value = current.copy(selectedRouteId = null)
+                select(null)
+            }
+        }
+    }
+
+    /**
+     * Records the route in state and on the wall row.
+     *
+     * Persisted so the app can come back to it next launch; failing to write
+     * it costs the reselection and nothing else, so it is logged rather than
+     * surfaced.
+     */
+    private suspend fun select(routeId: Long?) {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        _uiState.value = current.copy(selectedRouteId = routeId)
+        val wallId = current.wallId ?: return
+        try {
+            walls.selectRoute(wallId, routeId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "recording the selected route failed", e)
+        }
     }
 
     /**
