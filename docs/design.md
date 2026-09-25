@@ -80,6 +80,7 @@ Each phase should end with something you can run on a device and see working, be
 | 12 | Visual gap editor | Mark in the app which grid positions actually have holds, and upload the result to the controller — so moving holds around doesn't mean hand-editing a file |
 | 13 | Kid-friendly effects | A small curated set of WLED effects and palettes to experiment with, rather than mirroring WLED's own UI |
 | 14 | Brightness | A brightness control next to the on/off switch, so the wall can be dimmed for evening use without digging into WLED's own UI |
+| 15 | Configurable palettes | A choice of predefined hold-colour palettes, plus the ability to build your own, from configuration |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
 
@@ -90,6 +91,55 @@ Notes on the later phases:
 - **Phase 12** is already feasible: WLED's own 2D settings page uploads the gap file by POSTing it to `/upload` with the filename `/2d-gaps.json`, so no extra firmware support is needed. The app already knows how to *read* and interpret that file. Note the editor has to write `-1` for a position with no LED and `0` for one that has an LED which shouldn't be used — the two are not interchangeable (see above).
 - **Phase 13** should stay deliberately small. The point is a few big obvious buttons, not a second WLED front end.
 - **Phase 14** is a simplified WLED control like Phase 13, but it doesn't belong in the same screen. Brightness is an everyday adjustment — bright in daylight, dim in the evening — rather than something to experiment with, so it wants to sit beside the on/off switch where it's reachable in one tap. Technically it's one field, `{"bri": 0-255}` on `/json/state`: master brightness, not the per-segment `bri`. **The slider must not be allowed to reach 0** (see below).
+- **Phase 15** comes out of finding that the palette had been chosen to look
+  right on a screen rather than on an LED (see below). Once the values are
+  worth tuning, they are worth letting someone else tune. Three parts: a set of
+  predefined palettes to pick from, a builder for a custom one, and a home for
+  both under configuration — alongside the controller address and the gap
+  editor, per [navigation.md](navigation.md), rather than on the wall screen.
+  The tray on the wall screen stays a handful of large swatches whatever the
+  palette contains; the target user is six, and a configurable palette is for
+  the adult setting it up.
+
+  **Two palettes to ship with, so "predefined" means something on day one.**
+  *WLED* is what the app uses today, taken from the controller's own
+  quick-select swatches and fully saturated: `FF0000` `FFA000` `FFC800`
+  `08FF00` `0000FF` `AA00FF`. *Original* is the set used before that, softer
+  and less saturated in green, blue and yellow: `FF0000` `FFA000` `FFD500`
+  `00C853` `2979FF` `AA00FF`. Its orange is WLED's, not the `FF6A00` it
+  shipped with - that value was a defect rather than a preference, and
+  preserving it would only preserve the bug. Purple is the same in both,
+  because WLED has none to borrow.
+
+  **The hard part is not the UI, it is that routes are stored by colour name.**
+  `RouteHolds` serialises `x,y:Red`, which works precisely because `HoldColor`
+  is a fixed enum — the values behind those names were retuned without touching
+  a saved route. A configurable palette removes that guarantee.
+
+  **Store the position rather than the colour.** `x,y:1` instead of
+  `x,y:Orange`: a route records which *slot* each hold uses, and the palette in
+  force supplies the colour when the route is drawn and pushed. Switching
+  palettes then re-skins every saved route for nothing — no migration, no route
+  able to reference a colour that no longer exists, and no way for editing a
+  palette to corrupt stored data, because the stored data never named a colour
+  in the first place. It also describes a route more honestly than a colour
+  name does: holds sharing a colour are a group, and what has to survive is
+  that the groups stay distinct, not which particular colour each one got.
+
+  The migration from today is free. `HoldColor` is already an ordered enum, so
+  its ordinal *is* the slot — `Red` is 0, `Orange` 1, and so on — which makes
+  the rewrite mechanical and lossless. The cost is that the stored column stops
+  being self-describing: `x,y:1` needs the palette to be read, where `x,y:Red`
+  did not. That is a real loss when inspecting the database by hand, and a
+  small price for the rest.
+
+  **The edge case to settle is a palette smaller than the route needs.** A
+  route using slot 5 applied to a four-colour palette has to do *something*,
+  and both obvious answers are wrong: clamping and wrapping can both land two
+  different slots on the same colour, merging two groups of holds into one and
+  silently destroying the distinction the route was built on. Either palettes
+  carry a fixed minimum size, or switching to a smaller one is refused rather
+  than fudged.
 
 ## WLED behaviour worth knowing
 
