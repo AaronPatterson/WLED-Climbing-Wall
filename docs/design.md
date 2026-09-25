@@ -80,6 +80,7 @@ Each phase should end with something you can run on a device and see working, be
 | 12 | Visual gap editor | Mark in the app which grid positions actually have holds, and upload the result to the controller — so moving holds around doesn't mean hand-editing a file |
 | 13 | Kid-friendly effects | A small curated set of WLED effects and palettes to experiment with, rather than mirroring WLED's own UI |
 | 14 | Brightness | A brightness control next to the on/off switch, so the wall can be dimmed for evening use without digging into WLED's own UI |
+| 15 | Configurable palettes | A choice of predefined hold-colour palettes, plus the ability to build your own, from configuration |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
 
@@ -90,6 +91,26 @@ Notes on the later phases:
 - **Phase 12** is already feasible: WLED's own 2D settings page uploads the gap file by POSTing it to `/upload` with the filename `/2d-gaps.json`, so no extra firmware support is needed. The app already knows how to *read* and interpret that file. Note the editor has to write `-1` for a position with no LED and `0` for one that has an LED which shouldn't be used — the two are not interchangeable (see above).
 - **Phase 13** should stay deliberately small. The point is a few big obvious buttons, not a second WLED front end.
 - **Phase 14** is a simplified WLED control like Phase 13, but it doesn't belong in the same screen. Brightness is an everyday adjustment — bright in daylight, dim in the evening — rather than something to experiment with, so it wants to sit beside the on/off switch where it's reachable in one tap. Technically it's one field, `{"bri": 0-255}` on `/json/state`: master brightness, not the per-segment `bri`. **The slider must not be allowed to reach 0** (see below).
+- **Phase 15** comes out of finding that the palette had been chosen to look
+  right on a screen rather than on an LED (see below). Once the values are
+  worth tuning, they are worth letting someone else tune. Three parts: a set of
+  predefined palettes to pick from, a builder for a custom one, and a home for
+  both under configuration — alongside the controller address and the gap
+  editor, per [navigation.md](navigation.md), rather than on the wall screen.
+  The tray on the wall screen stays a handful of large swatches whatever the
+  palette contains; the target user is six, and a configurable palette is for
+  the adult setting it up.
+
+  **The hard part is not the UI, it is that routes are stored by colour name.**
+  `RouteHolds` serialises `x,y:Red`, which works precisely because `HoldColor`
+  is a fixed enum — the values behind those names were retuned without touching
+  a saved route. A configurable palette breaks that: a route saved under one
+  palette has to still mean something under another, so holds need to reference
+  something stable, whether that is a slot number, a palette id plus index, or
+  the literal hex. Each of those changes what happens when a palette is edited
+  or deleted underneath an existing route, and that question wants answering
+  before any of it is built, not after. There is a migration here whichever way
+  it goes.
 
 ## WLED behaviour worth knowing
 
