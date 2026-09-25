@@ -53,6 +53,7 @@ fun RoutesPanel(
     currentFingerprint: String,
     canSave: Boolean,
     onLoad: (Long) -> Unit,
+    onNew: () -> Unit,
     onSave: () -> Unit,
     onRename: (StoredRoute) -> Unit,
     onDelete: (StoredRoute) -> Unit,
@@ -70,6 +71,9 @@ fun RoutesPanel(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onNew) {
+                Text(stringResource(R.string.routes_new))
+            }
             TextButton(onClick = onSave, enabled = canSave) {
                 Text(stringResource(R.string.routes_save))
             }

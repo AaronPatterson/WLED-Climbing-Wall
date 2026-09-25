@@ -29,6 +29,11 @@ sealed interface WallUiState {
      * edits belong to that route until they are saved over it or saved as a new
      * one, which is what makes "save" mean something different from "save as".
      *
+     * [modified] is true when what is on the wall differs from the route it
+     * came from, or from nothing at all when no route is open. It is derived
+     * by comparing against the route as saved, so undoing an edit back to the
+     * original clears it rather than leaving the wall looking dirty forever.
+     *
      * [name] is the controller's own name, shown so the top bar says which
      * wall is being controlled. It becomes more than decoration once there is
      * more than one wall to be connected to.
@@ -40,6 +45,7 @@ sealed interface WallUiState {
         val wall: Wall,
         val wallId: Long? = null,
         val selectedRouteId: Long? = null,
+        val modified: Boolean = false,
         val litHolds: Map<Int, HoldColor> = emptyMap(),
         val selectedColor: HoldColor = HoldColor.Red,
         val busy: Boolean = false

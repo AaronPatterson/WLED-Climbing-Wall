@@ -1,6 +1,7 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.GridPosition
+import com.wledclimb.app.grid.Wall
 import com.wledclimb.app.palette.HoldColor
 
 /**
@@ -47,4 +48,25 @@ object RouteHolds {
             GridPosition(gx, gy) to colour
         }.toMap()
     }
+
+    /**
+     * The same, for holds keyed by segment index.
+     *
+     * The app and the wire work in indices; storage works in coordinates,
+     * because an index only means something beside the width it was computed
+     * with. Everything that crosses that line goes through these two, so there
+     * is one conversion rather than one per caller.
+     */
+    fun serializeSegments(holds: Map<Int, HoldColor>, wall: Wall): String =
+        serialize(holds.mapKeys { (segmentIndex, _) -> wall.positionOf(segmentIndex) })
+
+    /**
+     * Holds at positions [wall] no longer has are dropped. The wall cannot
+     * light a hold that is not there, and an index outside the grid is a
+     * request WLED has no answer for.
+     */
+    fun parseSegments(stored: String, wall: Wall): Map<Int, HoldColor> =
+        parse(stored)
+            .filterKeys { wall.hasHoldAt(it.x, it.y) }
+            .mapKeys { (position, _) -> wall.segmentIndexAt(position.x, position.y) }
 }
