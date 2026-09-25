@@ -198,4 +198,87 @@ class WallRoutesTest {
         runCurrent()
         assertTrue(fixture.viewModel.savedRoutes.value.isEmpty())
     }
+
+    @Test
+    fun `reconnecting comes back to the route the wall was left on`() = runTest {
+        val fixture = Fixture()
+        runCurrent()
+        fixture.viewModel.selectColor(HoldColor.Green)
+        fixture.viewModel.toggleHold(segmentIndex = 2)
+        runCurrent()
+        fixture.viewModel.saveRoute("Traverse")
+        runCurrent()
+        val routeId = fixture.viewModel.savedRoutes.value.single().id
+
+        // Stands in for the app being reopened: same stores, fresh ViewModel.
+        val reopened = WallViewModel(
+            client = fixture.client,
+            walls = WallRepository(fixture.wallDao),
+            routes = RouteRepository(fixture.routeDao) { 1000L },
+            controllerAddress = "http://wall.test"
+        )
+        runCurrent()
+
+        assertEquals(routeId, connected(reopened).selectedRouteId)
+        assertEquals(mapOf(2 to HoldColor.Green), connected(reopened).litHolds)
+    }
+
+    @Test
+    fun `the restored route is pushed, not just displayed`() = runTest {
+        // The app cannot read the wall back - WLED answers /json/live with 501
+        // - so what it shows has to be what it sent, or the two can disagree
+        // with nothing to notice it.
+        val fixture = Fixture()
+        runCurrent()
+        fixture.viewModel.toggleHold(segmentIndex = 1)
+        runCurrent()
+        fixture.viewModel.saveRoute("Traverse")
+        runCurrent()
+
+        val pushesBefore = fixture.client.pushedHolds.size
+        WallViewModel(
+            client = fixture.client,
+            walls = WallRepository(fixture.wallDao),
+            routes = RouteRepository(fixture.routeDao) { 1000L },
+            controllerAddress = "http://wall.test"
+        )
+        runCurrent()
+
+        assertTrue(fixture.client.pushedHolds.size > pushesBefore)
+        assertEquals(mapOf(1 to HoldColor.Red.hex), fixture.client.pushedHolds.last())
+    }
+
+    @Test
+    fun `a wall with no route selected starts blank`() = runTest {
+        val fixture = Fixture()
+        runCurrent()
+
+        assertNull(connected(fixture.viewModel).selectedRouteId)
+        assertTrue(connected(fixture.viewModel).litHolds.isEmpty())
+    }
+
+    @Test
+    fun `a selected route that has since been deleted is ignored`() = runTest {
+        // Deleting clears the selection, but a route can also vanish from
+        // another device. Coming back to a missing route must not blank the
+        // connect.
+        val fixture = Fixture()
+        runCurrent()
+        fixture.viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        fixture.viewModel.saveRoute("Traverse")
+        runCurrent()
+        val routeId = fixture.viewModel.savedRoutes.value.single().id
+        fixture.routeDao.delete(routeId)
+
+        val reopened = WallViewModel(
+            client = fixture.client,
+            walls = WallRepository(fixture.wallDao),
+            routes = RouteRepository(fixture.routeDao) { 1000L },
+            controllerAddress = "http://wall.test"
+        )
+        runCurrent()
+
+        assertTrue(connected(reopened).litHolds.isEmpty())
+    }
 }

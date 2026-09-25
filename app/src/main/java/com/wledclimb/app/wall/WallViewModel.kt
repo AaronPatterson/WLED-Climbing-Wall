@@ -12,6 +12,7 @@ import com.wledclimb.app.network.WledIdentity
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.storage.RouteRepository
 import com.wledclimb.app.storage.StoredRoute
+import com.wledclimb.app.storage.StoredWall
 import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -120,6 +121,9 @@ class WallViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = WallUiState.Connecting
+            // The route the wall was last showing, restored once the state is
+            // in place - loadRoute reads it, so it cannot run any earlier.
+            var lastSelected: Long? = null
             _uiState.value = try {
                 // The three reads don't depend on each other, and run against a
                 // small controller over Wi-Fi - in sequence their connect timeouts
@@ -133,12 +137,14 @@ class WallViewModel(
                         panels = parsePanels(config.await()),
                         gaps = gaps.await()?.let { parseGaps(it) }
                     )
+                    val stored = storedWall(identity.await(), wall)
+                    lastSelected = stored?.lastSelectedRouteId
                     WallUiState.Connected(
                         on = status.await().on,
                         brightness = status.await().brightness,
                         name = identity.await().name,
                         wall = wall,
-                        wallId = storedWallId(identity.await(), wall)
+                        wallId = stored?.id
                     )
                 }
             } catch (e: CancellationException) {
@@ -147,6 +153,15 @@ class WallViewModel(
                 Log.e(TAG, "refresh() failed", e)
                 WallUiState.Error(problemFor(e))
             }
+
+            // Reopening the app comes back to the route it was left on rather
+            // than to a blank wall. Pushed, not merely displayed: everywhere
+            // else in here what the app shows is what it last sent, and a
+            // screen showing holds it had not pushed would be the one place
+            // that is not true. The app cannot read the wall back to check -
+            // WLED answers /json/live with 501 - so asserting the state it
+            // knows about beats displaying a guess.
+            lastSelected?.let { loadRoute(it) }
         }
     }
 
@@ -158,9 +173,9 @@ class WallViewModel(
      * else - turning it into a connection error would take away the grid over
      * a failure that has nothing to do with the controller.
      */
-    private suspend fun storedWallId(identity: WledIdentity, wall: Wall): Long? =
+    private suspend fun storedWall(identity: WledIdentity, wall: Wall): StoredWall? =
         try {
-            walls.findOrCreate(identity, controllerAddress, wall).id
+            walls.findOrCreate(identity, controllerAddress, wall)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
