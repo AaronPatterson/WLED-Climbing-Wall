@@ -17,8 +17,9 @@ package com.wledclimb.app.wall
  * Purple is ours. WLED's quick set has no purple; the nearest is magenta
  * (`FF00FF`), which is a different colour rather than a better-tuned one.
  *
- * Only the names are persisted - see RouteHolds - so these values can be
- * retuned without touching a saved route.
+ * Nothing about these values is persisted - see [RouteHolds], which stores a
+ * hold's [slot] - so the palette can be retuned, or swapped wholesale, without
+ * touching a saved route.
  */
 enum class HoldColor(val hex: String) {
     Red("FF0000"),
@@ -26,5 +27,22 @@ enum class HoldColor(val hex: String) {
     Yellow("FFC800"),
     Green("08FF00"),
     Blue("0000FF"),
-    Purple("AA00FF")
+    Purple("AA00FF");
+
+    /**
+     * Position in the palette, and the only thing a saved route records.
+     *
+     * A route stores which slot a hold uses rather than which colour, so the
+     * palette supplies the colour when the route is drawn and pushed. That is
+     * what lets a future palette change re-skin every saved route for nothing
+     * - see Phase 15 in docs/design.md. It is the enum's ordinal today because
+     * the enum *is* the palette; when palettes become data this is the one
+     * place that has to learn where a slot really comes from.
+     */
+    val slot: Int get() = ordinal
+
+    companion object {
+        /** The colour in [slot], or null if the palette has no such slot. */
+        fun atSlot(slot: Int): HoldColor? = entries.getOrNull(slot)
+    }
 }

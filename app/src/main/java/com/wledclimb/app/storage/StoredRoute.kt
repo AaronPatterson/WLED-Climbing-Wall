@@ -8,9 +8,11 @@ import androidx.room.PrimaryKey
 /**
  * A saved route: which holds are lit and in what colour.
  *
- * [holds] is `x,y:COLOUR` pairs separated by semicolons - grid coordinates
+ * [holds] is `x,y:SLOT` pairs separated by semicolons - grid coordinates
  * rather than segment indices, because an index only means something next to
- * the width it was computed with. See [com.wledclimb.app.grid.GridPosition].
+ * the width it was computed with, and palette *positions* rather than colours,
+ * so changing the palette does not rewrite every route. See [RouteHolds] and
+ * [com.wledclimb.app.grid.GridPosition].
  *
  * [wallFingerprint] is the shape of the wall when this route was last saved.
  * When it stops matching the wall's current fingerprint the route is not
