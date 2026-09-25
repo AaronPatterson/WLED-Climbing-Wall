@@ -81,6 +81,7 @@ Each phase should end with something you can run on a device and see working, be
 | 13 | Kid-friendly effects | A small curated set of WLED effects and palettes to experiment with, rather than mirroring WLED's own UI |
 | 14 | Brightness | A brightness control next to the on/off switch, so the wall can be dimmed for evening use without digging into WLED's own UI |
 | 15 | Configurable palettes | A choice of predefined hold-colour palettes, plus the ability to build your own, from configuration |
+| 16 | Working offline | Add, edit and delete routes with no controller in reach, with the wall controls showing that it is out of reach rather than failing |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
 
@@ -140,6 +141,48 @@ Notes on the later phases:
   silently destroying the distinction the route was built on. Either palettes
   carry a fixed minimum size, or switching to a smaller one is refused rather
   than fudged.
+
+
+- **Phase 16** is the requirement
+  [walls-and-routes.md](walls-and-routes.md) opened with and phase 4 did not
+  deliver: *a saved route can be selected and edited without being connected to
+  the wall*. Routes are stored, so the data half is done; what is missing is
+  that the app still treats a missing controller as a dead end.
+
+  **What is already true.** The wall's shape is stored as `holdGrid`, so a grid
+  can be drawn with nothing to ask. Routes are stored by grid position and
+  palette slot, so nothing about them needs the controller to interpret. Drafts
+  persist on every edit. Offline editing needs none of that built again.
+
+  **What has to change.** `WallUiState` has three shapes - `Connecting`,
+  `Connected`, `Error` - and no way to say "working, but out of reach". Today a
+  failed connect becomes `Error`, which takes the grid away entirely; that is
+  the single biggest thing in the way, and it is a state-modelling change
+  rather than a networking one. Every hold tap also pushes, so offline each
+  edit would be a failure to handle rather than an ordinary action.
+
+  **Which forces the question walls-and-routes.md already raised:** applying
+  becomes explicit. Edit locally and apply deliberately is a different model
+  from every tap going straight to the wall, and offline is what makes it
+  unavoidable - there is no sense in which an edit made with no controller has
+  been applied. Answering it for the offline case answers it for the online one
+  too, so it is one decision, not two.
+
+  **Coming back is the part that is easy to underestimate.** A controller that
+  reappears has whatever it had before, which need not be what the app has been
+  editing, and the app cannot read it back to find out - WLED answers
+  `/json/live` with 501. So reconnecting has to either push what the app holds
+  or ask, and doing it silently would let a reconnection overwrite the wall
+  someone else was using. This is the same question as the one the restore on
+  launch raises today, and the same place it belongs: alongside
+  [wall-sharing.md](wall-sharing.md).
+
+  **The indicator.** The power button shows that the controller is out of
+  reach, rather than the screen saying so. It is already the control that
+  answers "is the wall on?" from across a garage, and "there is no wall to
+  answer for" is the same question with a third answer - which is why it goes
+  there and not into a banner. It needs to be distinguishable without colour,
+  since that is the whole point of a control a six-year-old reads at a glance.
 
 ## WLED behaviour worth knowing
 
