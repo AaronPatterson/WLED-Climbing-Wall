@@ -5,6 +5,7 @@ import com.wledclimb.app.network.WledIdentity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class WallRepositoryTest {
@@ -128,7 +129,7 @@ class WallRepositoryTest {
         dao.insert(
             StoredWall(
                 name = "Garage",
-                controllerMac = "",
+                controllerMac = null,
                 controllerAddress = address,
                 width = 2,
                 height = 2,
@@ -154,6 +155,6 @@ class WallRepositoryTest {
 
         assertEquals(first.id, second.id)
         assertEquals(1, dao.insertCount)
-        assertEquals("", second.controllerMac)
+        assertNull(second.controllerMac)
     }
 }

@@ -26,6 +26,11 @@ import com.wledclimb.app.network.WledIdentity
  * because that is a different controller that happens to have been given the
  * same address.
  *
+ * The database enforces one row per MAC. Two rows for one controller would
+ * split a wall's routes across both, and whichever the app found first would
+ * look like it had lost half of them - so that is a constraint rather than
+ * something this class is merely careful about.
+ *
  * Shape and name are refreshed from the controller on every connect, because
  * the controller is the authority on both. [StoredWall.lastSelectedRouteId] is
  * deliberately preserved: it is the app's own state, not the controller's.
@@ -46,7 +51,7 @@ class WallRepository(private val walls: WallDao) {
         if (existing == null) {
             val fresh = StoredWall(
                 name = identity.name,
-                controllerMac = identity.mac,
+                controllerMac = identity.mac.takeIf { it.isNotBlank() },
                 controllerAddress = controllerAddress,
                 width = wall.width,
                 height = wall.height,
@@ -59,7 +64,7 @@ class WallRepository(private val walls: WallDao) {
             name = identity.name,
             // Backfills a wall stored before its MAC was known, and moves the
             // address when the controller turns up somewhere new.
-            controllerMac = identity.mac.ifBlank { existing.controllerMac },
+            controllerMac = identity.mac.takeIf { it.isNotBlank() } ?: existing.controllerMac,
             controllerAddress = controllerAddress,
             width = wall.width,
             height = wall.height,
@@ -85,7 +90,7 @@ class WallRepository(private val walls: WallDao) {
         // - but only if it does not already belong to a different controller.
         val byAddress = walls.byAddress(controllerAddress) ?: return null
         val claimedByAnother =
-            byAddress.controllerMac.isNotBlank() && byAddress.controllerMac != identity.mac
+            byAddress.controllerMac != null && byAddress.controllerMac != identity.mac
         return if (claimedByAnother) null else byAddress
     }
 }

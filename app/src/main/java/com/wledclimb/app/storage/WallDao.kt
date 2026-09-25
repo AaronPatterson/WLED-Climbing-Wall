@@ -16,7 +16,7 @@ interface WallDao {
      * The wall a controller belongs to. Identity, so this is the lookup that
      * matters - the address one exists only for controllers with no MAC.
      */
-    @Query("SELECT * FROM walls WHERE controllerMac = :mac AND controllerMac != '' LIMIT 1")
+    @Query("SELECT * FROM walls WHERE controllerMac = :mac")
     suspend fun byMac(mac: String): StoredWall?
 
     @Query("SELECT * FROM walls WHERE controllerAddress = :address LIMIT 1")

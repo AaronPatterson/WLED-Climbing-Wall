@@ -4,6 +4,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import android.database.sqlite.SQLiteConstraintException
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WallDaoTest : DatabaseTest() {
@@ -60,5 +63,36 @@ class WallDaoTest : DatabaseTest() {
         walls.setLastSelectedRoute(wallId, null)
 
         assertNull(walls.byId(wallId)!!.lastSelectedRouteId)
+    }
+
+    @Test
+    fun `a wall is found by the controller's MAC`() = runTest {
+        walls.insert(wall(name = "Garage", mac = "b0cbd8e23458", address = "a"))
+        walls.insert(wall(name = "Barn", mac = "aabbccddeeff", address = "b"))
+
+        assertEquals("Garage", walls.byMac("b0cbd8e23458")?.name)
+        assertEquals("Barn", walls.byMac("aabbccddeeff")?.name)
+        assertNull(walls.byMac("000000000000"))
+    }
+
+    @Test
+    fun `two walls cannot share a MAC`() = runTest {
+        // Two rows for one controller would split a wall's routes across both,
+        // and whichever the app found first would look like it had lost half.
+        walls.insert(wall(name = "Garage", mac = "b0cbd8e23458", address = "a"))
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            runBlocking { walls.insert(wall(name = "Copy", mac = "b0cbd8e23458", address = "b")) }
+        }
+    }
+
+    @Test
+    fun `walls with no MAC do not collide with each other`() = runTest {
+        // NULL is distinct from NULL in a unique index; "" would not be, which
+        // is why the column is nullable rather than defaulting to empty.
+        walls.insert(wall(name = "Garage", mac = null, address = "a"))
+        walls.insert(wall(name = "Barn", mac = null, address = "b"))
+
+        assertEquals(2, walls.all().first().size)
     }
 }

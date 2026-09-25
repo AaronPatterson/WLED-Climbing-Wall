@@ -1,6 +1,7 @@
 package com.wledclimb.app.storage
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -30,26 +31,51 @@ import androidx.room.PrimaryKey
  * the controller, and renaming it. Verified against a real controller, which
  * reports `b0cbd8e23458` for this wall.
  *
- * It is empty only if a controller reports no MAC, which WLED goes out of its
- * way to avoid - it falls back to reading eFuse directly rather than publishing
- * zeros. An empty value means "no usable identity", not an identity that
- * several walls share, so it is never matched on.
+ * It is null only if a controller reports no MAC, which WLED goes out of its
+ * way to avoid - it falls back to reading eFuse directly rather than
+ * publishing zeros. Null rather than an empty string, and that is not a style
+ * choice: the column is uniquely indexed, and SQLite treats every NULL in a
+ * unique index as distinct from every other while two empty strings collide.
+ * Storing "" would therefore let the first unknown-MAC wall be saved and
+ * refuse the second. Null means "no usable identity" and is never matched on.
  *
  * WLED also exposes a `deviceId`, and it is deliberately not used: it is a
  * SHA1 of the MAC salted with flash details, exists for WLED's own usage
  * statistics, and is compiled out entirely on ESP-IDF 6 and later. Derived
  * from the MAC, so no more stable, and optional where the MAC is not.
  *
+ * The MAC is not the primary key, despite being unique. A wall with no
+ * reported MAC has nothing to key on; replacing a controller board changes the
+ * MAC for the same physical wall, and re-pointing it should be one column
+ * updated rather than a primary key rewritten through every route that
+ * references it; and the MAC identifies the *controller*, which is not quite
+ * the same thing as the wall. A surrogate id also keeps `routes.wallId` an
+ * INTEGER, which SQLite stores as a rowid alias rather than as text repeated
+ * in every route row.
+ *
  * [controllerAddress] is the last address this controller answered on, kept so
  * a wall can be reached without rediscovery. It is explicitly *not* identity -
  * the same wall at a new address is still that wall, which is the whole reason
  * the MAC is here, and why the fingerprint ignores both.
  */
-@Entity(tableName = "walls")
+/*
+ * The MAC is uniquely indexed: two rows for one controller would split a
+ * wall's routes across both, and whichever the app happened to find first
+ * would appear to have lost half of them. Enforced by the database rather
+ * than by the repository being careful, because a constraint that lives in
+ * one function holds only until someone writes a second one.
+ *
+ * The MAC is deliberately *not* the primary key - see the note on
+ * [controllerMac] for why identity is still a surrogate id.
+ */
+@Entity(
+    tableName = "walls",
+    indices = [Index(value = ["controllerMac"], unique = true)]
+)
 data class StoredWall(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val controllerMac: String,
+    val controllerMac: String?,
     val controllerAddress: String,
     val width: Int,
     val height: Int,
