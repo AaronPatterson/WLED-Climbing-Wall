@@ -297,7 +297,7 @@ class WallViewModelTest {
 
         assertEquals(mapOf(1 to HoldColor.Blue), connectedState(viewModel).litHolds)
         // The wire format is WLED's hex, not the enum.
-        assertEquals(mapOf(1 to "2979FF"), client.pushedHolds.last())
+        assertEquals(mapOf(1 to "0000FF"), client.pushedHolds.last())
     }
 
     @Test
