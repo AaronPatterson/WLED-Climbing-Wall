@@ -372,11 +372,17 @@ class WallViewModel(
     }
 
     /**
-     * Deletes a route, leaving the wall lit as it is.
+     * Deletes a route, clearing the wall if that route was the one open.
      *
-     * Clearing the wall as well would be a second, unasked-for action - and an
-     * unrecoverable one, since the route is gone by then. Whoever deleted it
-     * can still see what they deleted.
+     * Leaving the holds up was the first behaviour here, on the reasoning that
+     * whoever deleted a route could still see what they deleted. Drafts make
+     * that wrong: holds belonging to a route that no longer exists are unsaved
+     * work by definition, so the wall would sit there modified, and switching
+     * away would offer to save a route that had just been deliberately thrown
+     * away. Deleting what you are looking at should take it off the wall.
+     *
+     * Deleting some other route touches nothing. It is not what is on the
+     * wall, and removing it from a list is not a reason to change the wall.
      */
     fun deleteRoute(routeId: Long) {
         viewModelScope.launch {
@@ -390,10 +396,14 @@ class WallViewModel(
             }
 
             val current = _uiState.value as? WallUiState.Connected ?: return@launch
-            if (current.selectedRouteId == routeId) {
-                _uiState.value = current.copy(selectedRouteId = null)
-                select(null)
-            }
+            if (current.selectedRouteId != routeId) return@launch
+
+            // Baseline first, so the clear that follows reads as unmodified
+            // rather than as an edit of the route that has just gone.
+            savedHolds = ""
+            select(null)
+            val latest = _uiState.value as? WallUiState.Connected ?: return@launch
+            showAndPush(latest, emptyMap(), "deleteRoute($routeId)")
         }
     }
 

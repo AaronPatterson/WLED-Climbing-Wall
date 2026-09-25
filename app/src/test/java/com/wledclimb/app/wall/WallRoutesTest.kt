@@ -10,6 +10,7 @@ import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -164,9 +165,10 @@ class WallRoutesTest {
     }
 
     @Test
-    fun `deleting a route leaves the wall lit`() = runTest {
-        // The route is gone by then, so clearing the wall as well would be an
-        // unasked-for second action that cannot be undone.
+    fun `deleting the open route takes its holds off the wall`() = runTest {
+        // Leaving them up would strand holds belonging to a route that no
+        // longer exists - unsaved work by definition, which would then offer
+        // to be saved as a route that was just deliberately thrown away.
         val fixture = Fixture()
         runCurrent()
         fixture.viewModel.toggleHold(segmentIndex = 0)
@@ -178,7 +180,57 @@ class WallRoutesTest {
         fixture.viewModel.deleteRoute(routeId)
         runCurrent()
 
+        assertTrue(connected(fixture.viewModel).litHolds.isEmpty())
+        assertEquals(emptyMap<Int, String>(), fixture.client.pushedHolds.last())
+        assertFalse(connected(fixture.viewModel).modified)
+    }
+
+    @Test
+    fun `deleting the open route with unsaved edits still clears it`() = runTest {
+        val fixture = Fixture()
+        runCurrent()
+        fixture.viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        fixture.viewModel.saveRoute("Traverse")
+        runCurrent()
+        val routeId = fixture.viewModel.savedRoutes.value.single().id
+
+        fixture.viewModel.toggleHold(segmentIndex = 3)
+        runCurrent()
+        assertTrue(connected(fixture.viewModel).modified)
+
+        fixture.viewModel.deleteRoute(routeId)
+        runCurrent()
+
+        assertTrue(connected(fixture.viewModel).litHolds.isEmpty())
+        assertFalse(connected(fixture.viewModel).modified)
+        assertNull(fixture.wallDao.byId(connected(fixture.viewModel).wallId!!)?.draftHolds)
+    }
+
+    @Test
+    fun `deleting a route that is not open leaves the wall alone`() = runTest {
+        // Removing something from a list is not a reason to change the wall.
+        val fixture = Fixture()
+        runCurrent()
+        fixture.viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        fixture.viewModel.saveRoute("Keep")
+        runCurrent()
+        val keep = fixture.viewModel.savedRoutes.value.single().id
+
+        fixture.viewModel.toggleHold(segmentIndex = 3)
+        runCurrent()
+        fixture.viewModel.saveRoute("Other", routeId = null)
+        runCurrent()
+        val other = fixture.viewModel.savedRoutes.value.first { it.id != keep }.id
+        fixture.viewModel.loadRoute(keep)
+        runCurrent()
+
+        fixture.viewModel.deleteRoute(other)
+        runCurrent()
+
         assertEquals(mapOf(0 to HoldColor.Red), connected(fixture.viewModel).litHolds)
+        assertEquals(keep, connected(fixture.viewModel).selectedRouteId)
     }
 
     @Test
