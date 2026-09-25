@@ -36,10 +36,22 @@ class RouteHoldsTest {
     }
 
     @Test
-    fun `an unknown colour drops that hold rather than the whole route`() {
-        // Renaming a HoldColor would orphan stored data. Losing one hold from
-        // an otherwise openable route beats a route that cannot be opened.
-        val parsed = RouteHolds.parse("0,0:Red;1,1:Chartreuse;2,2:Blue")
+    fun `holds are stored by palette position, not by colour`() {
+        // The whole point: the column names a slot, so retuning or swapping the
+        // palette re-skins saved routes instead of orphaning them.
+        val holds = mapOf(
+            GridPosition(0, 0) to HoldColor.Red,
+            GridPosition(1, 2) to HoldColor.Blue
+        )
+
+        assertEquals("0,0:0;1,2:4", RouteHolds.serialize(holds))
+    }
+
+    @Test
+    fun `a slot the palette does not have drops that hold, not the route`() {
+        // A route saved under a larger palette must still open under a smaller
+        // one. Losing a hold is recoverable; an unopenable route is not.
+        val parsed = RouteHolds.parse("0,0:0;1,1:99;2,2:4")
 
         assertEquals(2, parsed.size)
         assertEquals(HoldColor.Red, parsed[GridPosition(0, 0)])
@@ -48,7 +60,7 @@ class RouteHoldsTest {
 
     @Test
     fun `malformed entries are skipped without throwing`() {
-        val parsed = RouteHolds.parse("0,0:Red;garbage;1:Blue;x,y:Green;2,2:Yellow")
+        val parsed = RouteHolds.parse("0,0:0;garbage;1:4;x,y:3;2,2:2")
 
         assertEquals(2, parsed.size)
         assertTrue(parsed.containsKey(GridPosition(0, 0)))
