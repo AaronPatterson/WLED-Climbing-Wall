@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
 import com.wledclimb.app.storage.InMemoryRouteDao
@@ -185,6 +186,106 @@ class WallDraftsTest {
         runCurrent()
 
         assertTrue(connected(reopened).litHolds.isEmpty())
+        assertFalse(connected(reopened).modified)
+    }
+
+    @Test
+    fun `resetting brings back the route as saved`() = runTest {
+        val stores = Stores()
+        val viewModel = stores.open()
+        runCurrent()
+        viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        viewModel.saveRoute("Traverse")
+        runCurrent()
+
+        viewModel.toggleHold(segmentIndex = 3)
+        viewModel.toggleHold(segmentIndex = 1)
+        runCurrent()
+        assertTrue(connected(viewModel).modified)
+
+        viewModel.revertRoute()
+        runCurrent()
+
+        assertEquals(mapOf(0 to HoldColor.Red), connected(viewModel).litHolds)
+        assertFalse(connected(viewModel).modified)
+        assertNull(stores.wallDao.byId(connected(viewModel).wallId!!)?.draftHolds)
+    }
+
+    @Test
+    fun `the reset route is pushed to the wall, not just shown`() = runTest {
+        val stores = Stores()
+        val viewModel = stores.open()
+        runCurrent()
+        viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        viewModel.saveRoute("Traverse")
+        runCurrent()
+        viewModel.toggleHold(segmentIndex = 3)
+        runCurrent()
+
+        viewModel.revertRoute()
+        runCurrent()
+
+        assertEquals(mapOf(0 to HoldColor.Red.hex), stores.client.pushedHolds.last())
+    }
+
+    @Test
+    fun `resetting work with no route behind it clears the wall`() = runTest {
+        // There is no saved state to come back to, so reverting a draft that
+        // belongs to nothing means going back to nothing.
+        val stores = Stores()
+        val viewModel = stores.open()
+        runCurrent()
+        viewModel.toggleHold(segmentIndex = 2)
+        runCurrent()
+        assertTrue(connected(viewModel).modified)
+
+        viewModel.revertRoute()
+        runCurrent()
+
+        assertTrue(connected(viewModel).litHolds.isEmpty())
+        assertFalse(connected(viewModel).modified)
+        assertNull(connected(viewModel).selectedRouteId)
+    }
+
+    @Test
+    fun `resetting an unmodified route does nothing`() = runTest {
+        val stores = Stores()
+        val viewModel = stores.open()
+        runCurrent()
+        viewModel.toggleHold(segmentIndex = 0)
+        runCurrent()
+        viewModel.saveRoute("Traverse")
+        runCurrent()
+        val pushes = stores.client.pushedHolds.size
+
+        viewModel.revertRoute()
+        runCurrent()
+
+        assertEquals(mapOf(0 to HoldColor.Red), connected(viewModel).litHolds)
+        assertEquals(pushes, stores.client.pushedHolds.size)
+    }
+
+    @Test
+    fun `a reset survives closing the app`() = runTest {
+        // The draft has to be gone from storage, not just from the screen.
+        val stores = Stores()
+        val first = stores.open()
+        runCurrent()
+        first.toggleHold(segmentIndex = 0)
+        runCurrent()
+        first.saveRoute("Traverse")
+        runCurrent()
+        first.toggleHold(segmentIndex = 3)
+        runCurrent()
+        first.revertRoute()
+        runCurrent()
+
+        val reopened = stores.open()
+        runCurrent()
+
+        assertEquals(mapOf(0 to HoldColor.Red), connected(reopened).litHolds)
         assertFalse(connected(reopened).modified)
     }
 }

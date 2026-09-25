@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ed5575b46cc4e2ce71709d277898c409",
+    "identityHash": "94992883ccadf05ac8ede1cfadc0f327",
     "entities": [
       {
         "tableName": "walls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `controllerMac` TEXT NOT NULL, `controllerAddress` TEXT NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `holdGrid` TEXT NOT NULL, `lastSelectedRouteId` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `controllerMac` TEXT NOT NULL, `controllerAddress` TEXT NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `holdGrid` TEXT NOT NULL, `lastSelectedRouteId` INTEGER, `draftHolds` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -54,6 +54,11 @@
             "fieldPath": "lastSelectedRouteId",
             "columnName": "lastSelectedRouteId",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "draftHolds",
+            "columnName": "draftHolds",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -161,7 +166,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ed5575b46cc4e2ce71709d277898c409')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '94992883ccadf05ac8ede1cfadc0f327')"
     ]
   }
 }
