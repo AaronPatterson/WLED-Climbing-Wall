@@ -114,13 +114,32 @@ Notes on the later phases:
   **The hard part is not the UI, it is that routes are stored by colour name.**
   `RouteHolds` serialises `x,y:Red`, which works precisely because `HoldColor`
   is a fixed enum — the values behind those names were retuned without touching
-  a saved route. A configurable palette breaks that: a route saved under one
-  palette has to still mean something under another, so holds need to reference
-  something stable, whether that is a slot number, a palette id plus index, or
-  the literal hex. Each of those changes what happens when a palette is edited
-  or deleted underneath an existing route, and that question wants answering
-  before any of it is built, not after. There is a migration here whichever way
-  it goes.
+  a saved route. A configurable palette removes that guarantee.
+
+  **Store the position rather than the colour.** `x,y:1` instead of
+  `x,y:Orange`: a route records which *slot* each hold uses, and the palette in
+  force supplies the colour when the route is drawn and pushed. Switching
+  palettes then re-skins every saved route for nothing — no migration, no route
+  able to reference a colour that no longer exists, and no way for editing a
+  palette to corrupt stored data, because the stored data never named a colour
+  in the first place. It also describes a route more honestly than a colour
+  name does: holds sharing a colour are a group, and what has to survive is
+  that the groups stay distinct, not which particular colour each one got.
+
+  The migration from today is free. `HoldColor` is already an ordered enum, so
+  its ordinal *is* the slot — `Red` is 0, `Orange` 1, and so on — which makes
+  the rewrite mechanical and lossless. The cost is that the stored column stops
+  being self-describing: `x,y:1` needs the palette to be read, where `x,y:Red`
+  did not. That is a real loss when inspecting the database by hand, and a
+  small price for the rest.
+
+  **The edge case to settle is a palette smaller than the route needs.** A
+  route using slot 5 applied to a four-colour palette has to do *something*,
+  and both obvious answers are wrong: clamping and wrapping can both land two
+  different slots on the same colour, merging two groups of holds into one and
+  silently destroying the distinction the route was built on. Either palettes
+  carry a fixed minimum size, or switching to a smaller one is refused rather
+  than fudged.
 
 ## WLED behaviour worth knowing
 
