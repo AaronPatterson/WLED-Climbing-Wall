@@ -50,12 +50,14 @@ abstract class DatabaseTest {
 
     protected fun wall(
         name: String = "Garage",
+        mac: String = "b0cbd8e23458",
         address: String = "http://192.168.1.50",
         width: Int = 2,
         height: Int = 2,
         holdGrid: String = "1111"
     ) = StoredWall(
         name = name,
+        controllerMac = mac,
         controllerAddress = address,
         width = width,
         height = height,
@@ -65,7 +67,7 @@ abstract class DatabaseTest {
     protected fun route(
         wallId: Long,
         name: String = "Warm-up",
-        holds: String = "0,0:Red",
+        holds: String = "0,0:0",
         fingerprint: String = "abc123",
         updatedAt: Long = 1_000
     ) = StoredRoute(

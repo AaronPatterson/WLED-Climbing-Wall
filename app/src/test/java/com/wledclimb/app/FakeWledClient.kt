@@ -3,6 +3,7 @@ package com.wledclimb.app
 import com.wledclimb.app.network.MAX_BRIGHTNESS
 import com.wledclimb.app.network.MIN_USABLE_BRIGHTNESS
 import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.network.WledIdentity
 import com.wledclimb.app.network.WledStatus
 
 /** A `/json/cfg` body describing one 2x2 panel, enough to build a real Wall from. */
@@ -23,6 +24,7 @@ class FakeWledClient(
     var on: Boolean = false,
     var brightness: Int = 128,
     var name: String = "Test wall",
+    var mac: String = "b0cbd8e23458",
     var config: String = TWO_BY_TWO_CONFIG,
     var gaps: String? = null,
     /** When set, every call throws this instead of returning. */
@@ -56,9 +58,9 @@ class FakeWledClient(
         return WledStatus(on = on, brightness = this.brightness)
     }
 
-    override suspend fun getName(): String {
+    override suspend fun getIdentity(): WledIdentity {
         failWith?.let { throw it }
-        return name
+        return WledIdentity(name = name, mac = mac)
     }
 
     override suspend fun getConfig(): String {

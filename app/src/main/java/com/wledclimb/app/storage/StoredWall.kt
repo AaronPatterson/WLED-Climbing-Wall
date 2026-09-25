@@ -24,15 +24,32 @@ import androidx.room.PrimaryKey
  * are not meaningfully portable between walls, so there is no sensible global
  * "last route" to keep.
  *
- * [controllerAddress] is recorded so that connecting to a controller can find
- * the wall it belongs to once there is more than one. It is not part of the
- * wall's identity: the same wall reached at a new address is still that wall,
- * which is why the fingerprint ignores it.
+ * [controllerMac] is what identifies the wall: WLED's own `mac` from
+ * `/json/info`, the WiFi MAC lower-cased with the colons stripped, read from
+ * the chip's eFuse. It survives reboots, firmware updates, a DHCP lease moving
+ * the controller, and renaming it. Verified against a real controller, which
+ * reports `b0cbd8e23458` for this wall.
+ *
+ * It is empty only if a controller reports no MAC, which WLED goes out of its
+ * way to avoid - it falls back to reading eFuse directly rather than publishing
+ * zeros. An empty value means "no usable identity", not an identity that
+ * several walls share, so it is never matched on.
+ *
+ * WLED also exposes a `deviceId`, and it is deliberately not used: it is a
+ * SHA1 of the MAC salted with flash details, exists for WLED's own usage
+ * statistics, and is compiled out entirely on ESP-IDF 6 and later. Derived
+ * from the MAC, so no more stable, and optional where the MAC is not.
+ *
+ * [controllerAddress] is the last address this controller answered on, kept so
+ * a wall can be reached without rediscovery. It is explicitly *not* identity -
+ * the same wall at a new address is still that wall, which is the whole reason
+ * the MAC is here, and why the fingerprint ignores both.
  */
 @Entity(tableName = "walls")
 data class StoredWall(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    val controllerMac: String,
     val controllerAddress: String,
     val width: Int,
     val height: Int,

@@ -4,9 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wledclimb.app.grid.WledConfigException
+import com.wledclimb.app.grid.Wall
 import com.wledclimb.app.grid.buildWall
 import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
+import com.wledclimb.app.network.WledIdentity
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
@@ -97,7 +99,7 @@ class WallViewModel(
                 // stack up, so a dead controller took three timeouts to report.
                 coroutineScope {
                     val status = async { client.getStatus() }
-                    val name = async { client.getName() }
+                    val identity = async { client.getIdentity() }
                     val config = async { client.getConfig() }
                     val gaps = async { client.getGaps() }
                     val wall = buildWall(
@@ -107,9 +109,9 @@ class WallViewModel(
                     WallUiState.Connected(
                         on = status.await().on,
                         brightness = status.await().brightness,
-                        name = name.await(),
+                        name = identity.await().name,
                         wall = wall,
-                        wallId = storedWallId(name.await(), wall)
+                        wallId = storedWallId(identity.await(), wall)
                     )
                 }
             } catch (e: CancellationException) {
@@ -129,9 +131,9 @@ class WallViewModel(
      * else - turning it into a connection error would take away the grid over
      * a failure that has nothing to do with the controller.
      */
-    private suspend fun storedWallId(name: String, wall: com.wledclimb.app.grid.Wall): Long? =
+    private suspend fun storedWallId(identity: WledIdentity, wall: Wall): Long? =
         try {
-            walls.findOrCreate(controllerAddress, name, wall).id
+            walls.findOrCreate(identity, controllerAddress, wall).id
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

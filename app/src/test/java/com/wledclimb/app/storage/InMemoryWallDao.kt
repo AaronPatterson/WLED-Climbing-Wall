@@ -24,6 +24,9 @@ class InMemoryWallDao : WallDao {
 
     override suspend fun byId(id: Long): StoredWall? = rows.value.firstOrNull { it.id == id }
 
+    override suspend fun byMac(mac: String): StoredWall? =
+        rows.value.firstOrNull { it.controllerMac == mac && it.controllerMac.isNotBlank() }
+
     override suspend fun byAddress(address: String): StoredWall? =
         rows.value.firstOrNull { it.controllerAddress == address }
 
