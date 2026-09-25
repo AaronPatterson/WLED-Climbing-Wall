@@ -18,6 +18,11 @@ sealed interface WallUiState {
      * switching the wall off leaves it where it was, so both are needed to
      * describe the wall rather than either alone.
      *
+     * [wallId] is the row this wall was stored as, and is null when storing it
+     * failed. That is survivable rather than fatal: a wall that cannot be
+     * written to the database can still be lit, so the grid stays usable and
+     * only saving routes is unavailable.
+     *
      * [name] is the controller's own name, shown so the top bar says which
      * wall is being controlled. It becomes more than decoration once there is
      * more than one wall to be connected to.
@@ -27,6 +32,7 @@ sealed interface WallUiState {
         val brightness: Int,
         val name: String,
         val wall: Wall,
+        val wallId: Long? = null,
         val litHolds: Map<Int, HoldColor> = emptyMap(),
         val selectedColor: HoldColor = HoldColor.Red,
         val busy: Boolean = false

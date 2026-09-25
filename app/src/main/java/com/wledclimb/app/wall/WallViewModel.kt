@@ -8,6 +8,7 @@ import com.wledclimb.app.grid.buildWall
 import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledClient
+import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.async
@@ -24,7 +25,11 @@ private const val TAG = "WallViewModel"
  * on/off, and loads its grid layout (from `/json/cfg`) for display. Later
  * phases add per-hold route control.
  */
-class WallViewModel(private val client: WledClient) : ViewModel() {
+class WallViewModel(
+    private val client: WledClient,
+    private val walls: WallRepository,
+    private val controllerAddress: String
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WallUiState>(WallUiState.Connecting)
     val uiState: StateFlow<WallUiState> = _uiState.asStateFlow()
@@ -103,7 +108,8 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
                         on = status.await().on,
                         brightness = status.await().brightness,
                         name = name.await(),
-                        wall = wall
+                        wall = wall,
+                        wallId = storedWallId(name.await(), wall)
                     )
                 }
             } catch (e: CancellationException) {
@@ -114,6 +120,24 @@ class WallViewModel(private val client: WledClient) : ViewModel() {
             }
         }
     }
+
+    /**
+     * The row this wall is stored as, or null if it could not be stored.
+     *
+     * Deliberately not allowed to fail the connect. The database is not needed
+     * to light a hold, so a storage problem costs saving routes and nothing
+     * else - turning it into a connection error would take away the grid over
+     * a failure that has nothing to do with the controller.
+     */
+    private suspend fun storedWallId(name: String, wall: com.wledclimb.app.grid.Wall): Long? =
+        try {
+            walls.findOrCreate(controllerAddress, name, wall).id
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "storing the wall failed; routes cannot be saved", e)
+            null
+        }
 
     /** Picks the colour the next tapped hold will be painted in. */
     fun selectColor(color: HoldColor) {

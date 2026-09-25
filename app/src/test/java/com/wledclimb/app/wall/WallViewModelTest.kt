@@ -4,6 +4,8 @@ import com.wledclimb.app.network.WledStatus
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
+import com.wledclimb.app.storage.InMemoryWallDao
+import com.wledclimb.app.storage.WallRepository
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runCurrent
@@ -21,13 +23,20 @@ class WallViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    /**
+     * Each test gets its own empty wall store. None of them assert on it - the
+     * repository has its own tests - but the ViewModel now needs one to connect.
+     */
+    private fun wallViewModel(client: WledClient) =
+        WallViewModel(client, WallRepository(InMemoryWallDao()), "http://wall.test")
+
     private fun connectedState(viewModel: WallViewModel): WallUiState.Connected =
         viewModel.uiState.value as? WallUiState.Connected
             ?: error("Expected Connected but was ${viewModel.uiState.value}")
 
     @Test
     fun `loads power state and grid layout on creation`() = runTest {
-        val viewModel = WallViewModel(FakeWledClient(on = true))
+        val viewModel = wallViewModel(FakeWledClient(on = true))
 
         val state = connectedState(viewModel)
         assertTrue(state.on)
@@ -40,7 +49,7 @@ class WallViewModelTest {
     @Test
     fun `applies the gap file to the grid when the controller has one`() = runTest {
         // Second cell has no LED behind it, so there is no hold to light there.
-        val viewModel = WallViewModel(FakeWledClient(gaps = "[1,-1,1,1]"))
+        val viewModel = wallViewModel(FakeWledClient(gaps = "[1,-1,1,1]"))
 
         val wall = connectedState(viewModel).wall
         assertTrue(wall.hasHoldAt(x = 0, y = 0))
@@ -55,7 +64,7 @@ class WallViewModelTest {
         // arrives several times in a row. Each repeat would rebuild the state
         // and push another request for a wall already showing it.
         val client = FakeWledClient(on = true, brightness = 128)
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.setBrightness(200)
         runCurrent()
@@ -93,7 +102,7 @@ class WallViewModelTest {
                 return WledStatus(on = on, brightness = brightness)
             }
         }
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         connectedState(viewModel)
 
         viewModel.setBrightness(100)
@@ -114,7 +123,7 @@ class WallViewModelTest {
         // A dropped brightness request is not evidence the wall has gone - it
         // is one request among many during a drag.
         val client = FakeWledClient(on = true)
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         val before = connectedState(viewModel)
         viewModel.toggleHold(before.wall.segmentIndexAt(x = 0, y = 0))
         runCurrent()
@@ -135,7 +144,7 @@ class WallViewModelTest {
     @Test
     fun `toggling flips the wall and keeps the grid`() = runTest {
         val client = FakeWledClient(on = false)
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         val wallBefore = connectedState(viewModel).wall
 
         viewModel.toggleWall()
@@ -152,7 +161,7 @@ class WallViewModelTest {
     @Test
     fun `toggling does nothing when not connected`() = runTest {
         val client = FakeWledClient(failWith = IOException("boom"))
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.toggleWall()
 
@@ -162,14 +171,14 @@ class WallViewModelTest {
 
     @Test
     fun `an unreachable controller reports a network problem`() = runTest {
-        val viewModel = WallViewModel(FakeWledClient(failWith = IOException("connect timed out")))
+        val viewModel = wallViewModel(FakeWledClient(failWith = IOException("connect timed out")))
 
         assertEquals(WallUiState.Error(WallProblem.Unreachable), viewModel.uiState.value)
     }
 
     @Test
     fun `a controller that isn't a 2D matrix reports a config problem, not a network one`() = runTest {
-        val viewModel = WallViewModel(FakeWledClient(config = ONE_DIMENSIONAL_CONFIG))
+        val viewModel = wallViewModel(FakeWledClient(config = ONE_DIMENSIONAL_CONFIG))
 
         // The controller answered fine - reporting this as a network problem
         // would send the user off debugging the wrong thing entirely.
@@ -179,7 +188,7 @@ class WallViewModelTest {
     @Test
     fun `retrying after a failure reconnects`() = runTest {
         val client = FakeWledClient(failWith = IOException("down"))
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         assertTrue(viewModel.uiState.value is WallUiState.Error)
 
         client.failWith = null
@@ -191,7 +200,7 @@ class WallViewModelTest {
     @Test
     fun `tapping a hold lights it and pushes the route`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.toggleHold(segmentIndex = 2)
 
@@ -205,7 +214,7 @@ class WallViewModelTest {
     @Test
     fun `tapping a lit hold clears it`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         viewModel.toggleHold(segmentIndex = 2)
 
         viewModel.toggleHold(segmentIndex = 2)
@@ -219,7 +228,7 @@ class WallViewModelTest {
         // WLED keeps previously set pixels, so an incremental push would leave
         // a cleared hold lit on the wall.
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.toggleHold(segmentIndex = 0)
         viewModel.toggleHold(segmentIndex = 3)
@@ -229,7 +238,7 @@ class WallViewModelTest {
 
     @Test
     fun `powering the wall off keeps the route in the app`() = runTest {
-        val viewModel = WallViewModel(FakeWledClient(on = true))
+        val viewModel = wallViewModel(FakeWledClient(on = true))
         viewModel.toggleHold(segmentIndex = 1)
 
         viewModel.toggleWall()
@@ -245,7 +254,7 @@ class WallViewModelTest {
         // per-pixel route - without re-pushing, the app would still show a
         // route the wall had already forgotten.
         val client = FakeWledClient(on = false)
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         viewModel.toggleHold(segmentIndex = 1)
         val pushesBefore = client.pushedHolds.size
 
@@ -259,7 +268,7 @@ class WallViewModelTest {
     @Test
     fun `switching the wall on with no route pushes nothing`() = runTest {
         val client = FakeWledClient(on = false)
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.toggleWall()
 
@@ -269,7 +278,7 @@ class WallViewModelTest {
     @Test
     fun `a failed push surfaces the error rather than leaving the wall out of sync`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         client.failWith = IOException("gone")
 
         viewModel.toggleHold(segmentIndex = 1)
@@ -280,7 +289,7 @@ class WallViewModelTest {
     @Test
     fun `tapping a hold does nothing when not connected`() = runTest {
         val client = FakeWledClient(failWith = IOException("down"))
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.toggleHold(segmentIndex = 1)
 
@@ -290,7 +299,7 @@ class WallViewModelTest {
     @Test
     fun `holds are painted in the selected colour`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.selectColor(HoldColor.Blue)
         viewModel.toggleHold(segmentIndex = 1)
@@ -302,7 +311,7 @@ class WallViewModelTest {
 
     @Test
     fun `tapping a hold already in the selected colour clears it`() = runTest {
-        val viewModel = WallViewModel(FakeWledClient())
+        val viewModel = wallViewModel(FakeWledClient())
         viewModel.selectColor(HoldColor.Green)
         viewModel.toggleHold(segmentIndex = 1)
 
@@ -315,7 +324,7 @@ class WallViewModelTest {
     fun `tapping a hold showing a different colour repaints it`() = runTest {
         // Repaint rather than clear: needing to erase before recolouring would
         // be a fiddly extra step for a six-year-old.
-        val viewModel = WallViewModel(FakeWledClient())
+        val viewModel = wallViewModel(FakeWledClient())
         viewModel.selectColor(HoldColor.Green)
         viewModel.toggleHold(segmentIndex = 1)
 
@@ -328,7 +337,7 @@ class WallViewModelTest {
     @Test
     fun `changing colour leaves holds already on the wall alone`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         viewModel.toggleHold(segmentIndex = 1)
         val pushesBefore = client.pushedHolds.size
 
@@ -342,7 +351,7 @@ class WallViewModelTest {
     fun `clearing turns every hold off in one push`() = runTest {
         // The point of this over tapping each hold: one request, not one per hold.
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         viewModel.toggleHold(segmentIndex = 0)
         viewModel.toggleHold(segmentIndex = 3)
         val pushesBefore = client.pushedHolds.size
@@ -357,7 +366,7 @@ class WallViewModelTest {
     @Test
     fun `clearing an already empty wall does nothing`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
 
         viewModel.clearWall()
 
@@ -367,7 +376,7 @@ class WallViewModelTest {
     @Test
     fun `a failed clear surfaces the error`() = runTest {
         val client = FakeWledClient()
-        val viewModel = WallViewModel(client)
+        val viewModel = wallViewModel(client)
         viewModel.toggleHold(segmentIndex = 1)
         client.failWith = IOException("gone")
 
