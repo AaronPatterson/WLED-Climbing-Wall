@@ -5,7 +5,9 @@ import com.wledclimb.app.network.WledStatus
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.FakeWledClient
 import com.wledclimb.app.MainDispatcherRule
+import com.wledclimb.app.storage.InMemoryRouteDao
 import com.wledclimb.app.storage.InMemoryWallDao
+import com.wledclimb.app.storage.RouteRepository
 import com.wledclimb.app.storage.WallRepository
 import com.wledclimb.app.ONE_DIMENSIONAL_CONFIG
 import kotlinx.coroutines.CompletableDeferred
@@ -28,8 +30,12 @@ class WallViewModelTest {
      * Each test gets its own empty wall store. None of them assert on it - the
      * repository has its own tests - but the ViewModel now needs one to connect.
      */
-    private fun wallViewModel(client: WledClient) =
-        WallViewModel(client, WallRepository(InMemoryWallDao()), "http://wall.test")
+    private fun wallViewModel(client: WledClient) = WallViewModel(
+        client = client,
+        walls = WallRepository(InMemoryWallDao()),
+        routes = RouteRepository(InMemoryRouteDao()),
+        controllerAddress = "http://wall.test"
+    )
 
     private fun connectedState(viewModel: WallViewModel): WallUiState.Connected =
         viewModel.uiState.value as? WallUiState.Connected
