@@ -101,6 +101,16 @@ Notes on the later phases:
   palette contains; the target user is six, and a configurable palette is for
   the adult setting it up.
 
+  **Two palettes to ship with, so "predefined" means something on day one.**
+  *WLED* is what the app uses today, taken from the controller's own
+  quick-select swatches and fully saturated: `FF0000` `FFA000` `FFC800`
+  `08FF00` `0000FF` `AA00FF`. *Original* is the set used before that, softer
+  and less saturated in green, blue and yellow: `FF0000` `FFA000` `FFD500`
+  `00C853` `2979FF` `AA00FF`. Its orange is WLED's, not the `FF6A00` it
+  shipped with - that value was a defect rather than a preference, and
+  preserving it would only preserve the bug. Purple is the same in both,
+  because WLED has none to borrow.
+
   **The hard part is not the UI, it is that routes are stored by colour name.**
   `RouteHolds` serialises `x,y:Red`, which works precisely because `HoldColor`
   is a fixed enum — the values behind those names were retuned without touching
