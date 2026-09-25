@@ -341,6 +341,23 @@ class WallViewModel(
         }
     }
 
+    /**
+     * Throws away unsaved edits and goes back to the route as saved.
+     *
+     * With nothing open there is no saved state to return to, so the wall
+     * clears - a draft belonging to no route reverts to no route. That is the
+     * same thing [newRoute] does, and deliberately the same code: "undo my
+     * edits" and "start again" are the same action when there is nothing
+     * behind the edits.
+     */
+    fun revertRoute() {
+        val current = _uiState.value as? WallUiState.Connected ?: return
+        if (!current.modified) return
+
+        val open = current.selectedRouteId
+        if (open == null) newRoute() else loadRoute(open)
+    }
+
     private suspend fun clearDraft() {
         val wallId = (_uiState.value as? WallUiState.Connected)?.wallId ?: return
         try {
