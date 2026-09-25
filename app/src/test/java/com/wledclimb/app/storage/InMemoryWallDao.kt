@@ -17,6 +17,13 @@ class InMemoryWallDao : WallDao {
     private val rows = MutableStateFlow<List<StoredWall>>(emptyList())
     private var nextId = 1L
 
+    /**
+     * When set, every access throws - a database that cannot be opened, rather
+     * than one write that failed. Reads included, or a wall stored before the
+     * failure would still be found and the caller would never see a problem.
+     */
+    var failWith: Exception? = null
+
     var insertCount = 0
         private set
     var updateCount = 0
@@ -24,15 +31,20 @@ class InMemoryWallDao : WallDao {
 
     override suspend fun byId(id: Long): StoredWall? = rows.value.firstOrNull { it.id == id }
 
-    override suspend fun byMac(mac: String): StoredWall? =
-        rows.value.firstOrNull { it.controllerMac != null && it.controllerMac == mac }
+    override suspend fun byMac(mac: String): StoredWall? {
+        failWith?.let { throw it }
+        return rows.value.firstOrNull { it.controllerMac != null && it.controllerMac == mac }
+    }
 
-    override suspend fun byAddress(address: String): StoredWall? =
-        rows.value.firstOrNull { it.controllerAddress == address }
+    override suspend fun byAddress(address: String): StoredWall? {
+        failWith?.let { throw it }
+        return rows.value.firstOrNull { it.controllerAddress == address }
+    }
 
     override fun all(): Flow<List<StoredWall>> = rows.map { list -> list.sortedBy { it.name } }
 
     override suspend fun insert(wall: StoredWall): Long {
+        failWith?.let { throw it }
         // Mirrors the unique index. Without this the fake would accept writes
         // real SQLite rejects, and the tests would prove nothing about them.
         if (wall.controllerMac != null && rows.value.any { it.controllerMac == wall.controllerMac }) {

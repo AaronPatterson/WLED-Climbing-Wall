@@ -23,6 +23,11 @@ sealed interface WallUiState {
      * written to the database can still be lit, so the grid stays usable and
      * only saving routes is unavailable.
      *
+     * [selectedRouteId] is the saved route being edited, or null for holds that
+     * have not been saved as one. Editing a loaded route does not clear it: the
+     * edits belong to that route until they are saved over it or saved as a new
+     * one, which is what makes "save" mean something different from "save as".
+     *
      * [name] is the controller's own name, shown so the top bar says which
      * wall is being controlled. It becomes more than decoration once there is
      * more than one wall to be connected to.
@@ -33,6 +38,7 @@ sealed interface WallUiState {
         val name: String,
         val wall: Wall,
         val wallId: Long? = null,
+        val selectedRouteId: Long? = null,
         val litHolds: Map<Int, HoldColor> = emptyMap(),
         val selectedColor: HoldColor = HoldColor.Red,
         val busy: Boolean = false
