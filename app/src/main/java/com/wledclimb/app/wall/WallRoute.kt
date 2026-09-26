@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wledclimb.app.LambdaViewModelFactory
 import com.wledclimb.app.network.HttpWledClient
 import com.wledclimb.app.storage.ClimbDatabase
+import com.wledclimb.app.storage.RouteRepository
 import com.wledclimb.app.storage.WallRepository
 
 /**
@@ -23,22 +24,30 @@ fun WallRoute(wledBaseUrl: String, onChangeController: () -> Unit) {
     val wallViewModel: WallViewModel = viewModel(
         key = wledBaseUrl,
         factory = LambdaViewModelFactory {
+            val database = ClimbDatabase.instance(context)
             WallViewModel(
                 client = HttpWledClient(baseUrl = wledBaseUrl),
-                walls = WallRepository(ClimbDatabase.instance(context).walls()),
+                walls = WallRepository(database.walls()),
+                routes = RouteRepository(database.routes()),
                 controllerAddress = wledBaseUrl
             )
         }
     )
     val wallState by wallViewModel.uiState.collectAsState()
+    val routes by wallViewModel.savedRoutes.collectAsState()
     WallScreen(
         state = wallState,
+        routes = routes,
         onToggle = wallViewModel::toggleWall,
         onHoldTap = wallViewModel::toggleHold,
         onBrightnessChange = wallViewModel::setBrightness,
         onColorSelect = wallViewModel::selectColor,
         onClearWall = wallViewModel::clearWall,
         onRetry = wallViewModel::refresh,
-        onChangeController = onChangeController
+        onChangeController = onChangeController,
+        onLoadRoute = wallViewModel::loadRoute,
+        onSaveRoute = wallViewModel::saveRoute,
+        onRenameRoute = wallViewModel::renameRoute,
+        onDeleteRoute = wallViewModel::deleteRoute
     )
 }

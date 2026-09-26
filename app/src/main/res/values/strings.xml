@@ -33,6 +33,25 @@
     <string name="color_purple">Purple</string>
     <string name="color_selected">%1$s, selected</string>
 
+    <!-- Routes -->
+    <string name="routes_title">Routes</string>
+    <string name="routes_open">Saved routes</string>
+    <string name="routes_save">Save</string>
+    <string name="routes_more">More</string>
+    <string name="routes_rename">Rename</string>
+    <string name="routes_delete">Delete</string>
+    <string name="routes_empty">No saved routes yet. Light some holds, then tap Save.</string>
+    <string name="routes_unavailable">Routes cannot be saved for this wall.</string>
+    <string name="routes_wall_changed">The wall has changed since this was saved</string>
+    <string name="routes_save_title">Save route</string>
+    <string name="routes_rename_title">Rename route</string>
+    <string name="routes_name_label">Name</string>
+    <string name="routes_save_new">Save as new</string>
+    <string name="routes_update">Update</string>
+    <string name="routes_cancel">Cancel</string>
+    <string name="routes_delete_title">Delete %1$s?</string>
+    <string name="routes_delete_body">The route is removed. The wall stays lit as it is.</string>
+
     <!-- Zoom -->
     <string name="wall_zoom_in">Zoom in</string>
     <string name="wall_zoom_out">Zoom out</string>
