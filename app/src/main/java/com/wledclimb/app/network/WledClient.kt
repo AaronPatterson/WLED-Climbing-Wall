@@ -1,5 +1,7 @@
 package com.wledclimb.app.network
 
+import com.wledclimb.app.palette.HoldColor
+
 /**
  * Talks to a WLED controller's JSON HTTP API.
  *

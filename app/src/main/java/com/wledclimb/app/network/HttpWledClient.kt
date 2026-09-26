@@ -1,5 +1,6 @@
 package com.wledclimb.app.network
 
+import com.wledclimb.app.palette.HoldColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType

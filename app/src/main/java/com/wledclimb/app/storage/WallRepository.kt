@@ -1,7 +1,6 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.Wall
-import com.wledclimb.app.network.WledIdentity
 
 /**
  * The stored wall behind a controller, created the first time one is reached.
@@ -31,6 +30,11 @@ import com.wledclimb.app.network.WledIdentity
  * look like it had lost half of them - so that is a constraint rather than
  * something this class is merely careful about.
  *
+ * Takes the controller's MAC and name as plain values rather than the type the
+ * network layer parses them into. Storage has no business knowing the wire
+ * format exists, and the two facts it actually needs are a string and a
+ * nullable string.
+ *
  * Shape and name are refreshed from the controller on every connect, because
  * the controller is the authority on both. [StoredWall.lastSelectedRouteId] is
  * deliberately preserved: it is the app's own state, not the controller's.
@@ -42,16 +46,18 @@ class WallRepository(private val walls: WallDao) {
         walls.setLastSelectedRoute(wallId, routeId)
 
     suspend fun findOrCreate(
-        identity: WledIdentity,
+        controllerMac: String?,
+        name: String,
         controllerAddress: String,
         wall: Wall
     ): StoredWall {
-        val existing = existingFor(identity, controllerAddress)
+        val mac = controllerMac?.takeIf { it.isNotBlank() }
+        val existing = existingFor(mac, controllerAddress)
 
         if (existing == null) {
             val fresh = StoredWall(
-                name = identity.name,
-                controllerMac = identity.mac.takeIf { it.isNotBlank() },
+                name = name,
+                controllerMac = mac,
                 controllerAddress = controllerAddress,
                 width = wall.width,
                 height = wall.height,
@@ -61,10 +67,10 @@ class WallRepository(private val walls: WallDao) {
         }
 
         val refreshed = existing.copy(
-            name = identity.name,
+            name = name,
             // Backfills a wall stored before its MAC was known, and moves the
             // address when the controller turns up somewhere new.
-            controllerMac = identity.mac.takeIf { it.isNotBlank() } ?: existing.controllerMac,
+            controllerMac = mac ?: existing.controllerMac,
             controllerAddress = controllerAddress,
             width = wall.width,
             height = wall.height,
@@ -77,12 +83,9 @@ class WallRepository(private val walls: WallDao) {
         return refreshed
     }
 
-    private suspend fun existingFor(
-        identity: WledIdentity,
-        controllerAddress: String
-    ): StoredWall? {
-        if (identity.hasStableId) {
-            walls.byMac(identity.mac)?.let { return it }
+    private suspend fun existingFor(mac: String?, controllerAddress: String): StoredWall? {
+        if (mac != null) {
+            walls.byMac(mac)?.let { return it }
         }
 
         // Nothing known by that MAC. The address may still lead to this wall -
@@ -90,7 +93,7 @@ class WallRepository(private val walls: WallDao) {
         // - but only if it does not already belong to a different controller.
         val byAddress = walls.byAddress(controllerAddress) ?: return null
         val claimedByAnother =
-            byAddress.controllerMac != null && byAddress.controllerMac != identity.mac
+            byAddress.controllerMac != null && byAddress.controllerMac != mac
         return if (claimedByAnother) null else byAddress
     }
 }

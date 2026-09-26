@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -133,7 +134,12 @@ class WallViewModel(
      */
     private suspend fun storedWallId(identity: WledIdentity, wall: Wall): Long? =
         try {
-            walls.findOrCreate(identity, controllerAddress, wall).id
+            walls.findOrCreate(
+                controllerMac = identity.mac,
+                name = identity.name,
+                controllerAddress = controllerAddress,
+                wall = wall
+            ).id
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

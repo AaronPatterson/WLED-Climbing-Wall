@@ -1,7 +1,6 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.Wall
-import com.wledclimb.app.network.WledIdentity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -13,8 +12,13 @@ class WallRepositoryTest {
     private val address = "http://wall.local"
     private val mac = "b0cbd8e23458"
 
-    private fun identity(name: String = "Garage", mac: String = this.mac) =
-        WledIdentity(name = name, mac = mac)
+    /** What a connect hands the repository: a MAC, a name, an address, a shape. */
+    private suspend fun WallRepository.reached(
+        wall: Wall,
+        name: String = "Garage",
+        mac: String? = this@WallRepositoryTest.mac,
+        address: String = this@WallRepositoryTest.address
+    ) = findOrCreate(controllerMac = mac, name = name, controllerAddress = address, wall = wall)
 
     private fun wallOf(vararg rows: String) = Wall(
         width = rows.first().length,
@@ -25,7 +29,7 @@ class WallRepositoryTest {
     @Test
     fun `the first connect stores the wall`() = runTest {
         val dao = InMemoryWallDao()
-        val stored = WallRepository(dao).findOrCreate(identity("Garage"), address, wallOf("11", "10"))
+        val stored = WallRepository(dao).reached(wallOf("11", "10"))
 
         assertEquals(1, dao.insertCount)
         assertEquals("Garage", stored.name)
@@ -39,8 +43,8 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        val first = repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
-        val second = repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
+        val first = repository.reached(wallOf("11", "10"))
+        val second = repository.reached(wallOf("11", "10"))
 
         assertEquals(first.id, second.id)
         assertEquals(1, dao.insertCount)
@@ -53,8 +57,8 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
-        repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
+        repository.reached(wallOf("11", "10"))
+        repository.reached(wallOf("11", "10"))
 
         assertEquals(0, dao.updateCount)
     }
@@ -64,8 +68,8 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        val before = repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
-        val after = repository.findOrCreate(identity("Barn"), address, wallOf("111", "101"))
+        val before = repository.reached(wallOf("11", "10"))
+        val after = repository.reached(wallOf("111", "101"), name = "Barn")
 
         assertEquals(before.id, after.id)
         assertEquals(1, dao.updateCount)
@@ -81,10 +85,10 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        val stored = repository.findOrCreate(identity("Garage"), address, wallOf("11", "10"))
+        val stored = repository.reached(wallOf("11", "10"))
         dao.setLastSelectedRoute(stored.id, routeId = 7)
 
-        val refreshed = repository.findOrCreate(identity("Garage"), address, wallOf("111", "101"))
+        val refreshed = repository.reached(wallOf("111", "101"))
 
         assertEquals(7L, refreshed.lastSelectedRouteId)
     }
@@ -96,8 +100,8 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        val before = repository.findOrCreate(identity(), address, wallOf("11", "10"))
-        val after = repository.findOrCreate(identity(), "http://192.168.30.77", wallOf("11", "10"))
+        val before = repository.reached(wallOf("11", "10"))
+        val after = repository.reached(wallOf("11", "10"), address = "http://192.168.30.77")
 
         assertEquals(before.id, after.id)
         assertEquals(1, dao.insertCount)
@@ -111,10 +115,8 @@ class WallRepositoryTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
 
-        val first = repository.findOrCreate(identity(), address, wallOf("11", "10"))
-        val second = repository.findOrCreate(
-            identity(name = "Barn", mac = "aabbccddeeff"), address, wallOf("11", "10")
-        )
+        val first = repository.reached(wallOf("11", "10"))
+        val second = repository.reached(wallOf("11", "10"), name = "Barn", mac = "aabbccddeeff")
 
         assertNotEquals(first.id, second.id)
         assertEquals(2, dao.insertCount)
@@ -137,7 +139,7 @@ class WallRepositoryTest {
             )
         )
 
-        val adopted = repository.findOrCreate(identity(), address, wallOf("11", "10"))
+        val adopted = repository.reached(wallOf("11", "10"))
 
         assertEquals(1, dao.insertCount)
         assertEquals(mac, adopted.controllerMac)
@@ -148,10 +150,8 @@ class WallRepositoryTest {
     fun `a controller reporting no MAC falls back to matching on address`() = runTest {
         val dao = InMemoryWallDao()
         val repository = WallRepository(dao)
-        val anonymous = identity(mac = "")
-
-        val first = repository.findOrCreate(anonymous, address, wallOf("11", "10"))
-        val second = repository.findOrCreate(anonymous, address, wallOf("11", "10"))
+        val first = repository.reached(wallOf("11", "10"), mac = null)
+        val second = repository.reached(wallOf("11", "10"), mac = null)
 
         assertEquals(first.id, second.id)
         assertEquals(1, dao.insertCount)
