@@ -16,7 +16,7 @@ class WallRepositoryTest {
     private suspend fun WallRepository.reached(
         wall: Wall,
         name: String = "Garage",
-        mac: String? = this@WallRepositoryTest.mac,
+        mac: String = this@WallRepositoryTest.mac,
         address: String = this@WallRepositoryTest.address
     ) = findOrCreate(controllerMac = mac, name = name, controllerAddress = address, wall = wall)
 
@@ -122,39 +122,4 @@ class WallRepositoryTest {
         assertEquals(2, dao.insertCount)
     }
 
-    @Test
-    fun `a wall stored before its MAC was known is adopted, not duplicated`() = runTest {
-        // The upgrade path. Found by address because no MAC was recorded, then
-        // identified properly from then on.
-        val dao = InMemoryWallDao()
-        val repository = WallRepository(dao)
-        dao.insert(
-            StoredWall(
-                name = "Garage",
-                controllerMac = null,
-                controllerAddress = address,
-                width = 2,
-                height = 2,
-                holdGrid = HoldGrid.serialize(wallOf("11", "10"))
-            )
-        )
-
-        val adopted = repository.reached(wallOf("11", "10"))
-
-        assertEquals(1, dao.insertCount)
-        assertEquals(mac, adopted.controllerMac)
-        assertEquals(adopted.id, dao.byMac(mac)?.id)
-    }
-
-    @Test
-    fun `a controller reporting no MAC falls back to matching on address`() = runTest {
-        val dao = InMemoryWallDao()
-        val repository = WallRepository(dao)
-        val first = repository.reached(wallOf("11", "10"), mac = null)
-        val second = repository.reached(wallOf("11", "10"), mac = null)
-
-        assertEquals(first.id, second.id)
-        assertEquals(1, dao.insertCount)
-        assertNull(second.controllerMac)
-    }
 }

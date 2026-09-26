@@ -18,12 +18,10 @@ import com.wledclimb.app.grid.Wall
  * stored, and updated whenever the controller turns up somewhere new, so a
  * wall can be reached without rediscovery.
  *
- * Address matching remains as a fallback for a controller reporting no MAC,
- * and as the upgrade path for a wall stored before the MAC was read: found by
- * address, its MAC is backfilled, and it is identified properly from then on.
- * A row whose stored MAC disagrees with the one in hand is never reused,
- * because that is a different controller that happens to have been given the
- * same address.
+ * There is no second way to find a wall. A controller that reports no MAC is
+ * refused on connect, so the MAC is always there to look up by - and matching
+ * on an address instead would hand one wall's routes to whichever controller
+ * DHCP put at that address next.
  *
  * The database enforces one row per MAC. Two rows for one controller would
  * split a wall's routes across both, and whichever the app found first would
@@ -46,18 +44,17 @@ class WallRepository(private val walls: WallDao) {
         walls.setLastSelectedRoute(wallId, routeId)
 
     suspend fun findOrCreate(
-        controllerMac: String?,
+        controllerMac: String,
         name: String,
         controllerAddress: String,
         wall: Wall
     ): StoredWall {
-        val mac = controllerMac?.takeIf { it.isNotBlank() }
-        val existing = existingFor(mac, controllerAddress)
+        val existing = walls.byMac(controllerMac)
 
         if (existing == null) {
             val fresh = StoredWall(
                 name = name,
-                controllerMac = mac,
+                controllerMac = controllerMac,
                 controllerAddress = controllerAddress,
                 width = wall.width,
                 height = wall.height,
@@ -68,9 +65,8 @@ class WallRepository(private val walls: WallDao) {
 
         val refreshed = existing.copy(
             name = name,
-            // Backfills a wall stored before its MAC was known, and moves the
-            // address when the controller turns up somewhere new.
-            controllerMac = mac ?: existing.controllerMac,
+            // Moves the address when the controller turns up somewhere new.
+            // The MAC cannot have changed - it is what found this row.
             controllerAddress = controllerAddress,
             width = wall.width,
             height = wall.height,
@@ -81,19 +77,5 @@ class WallRepository(private val walls: WallDao) {
         // re-emit the whole list every time the app reconnects.
         if (refreshed != existing) walls.update(refreshed)
         return refreshed
-    }
-
-    private suspend fun existingFor(mac: String?, controllerAddress: String): StoredWall? {
-        if (mac != null) {
-            walls.byMac(mac)?.let { return it }
-        }
-
-        // Nothing known by that MAC. The address may still lead to this wall -
-        // stored before the MAC was read, or by a controller that reports none
-        // - but only if it does not already belong to a different controller.
-        val byAddress = walls.byAddress(controllerAddress) ?: return null
-        val claimedByAnother =
-            byAddress.controllerMac != null && byAddress.controllerMac != mac
-        return if (claimedByAnother) null else byAddress
     }
 }

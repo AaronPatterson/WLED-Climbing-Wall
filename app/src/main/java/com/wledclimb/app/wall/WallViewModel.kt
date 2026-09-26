@@ -10,6 +10,7 @@ import com.wledclimb.app.grid.buildWall
 import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledIdentity
+import com.wledclimb.app.network.WledIdentityException
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
@@ -278,5 +279,6 @@ private fun Map<Int, HoldColor>.toHex(): Map<Int, String> = mapValues { it.value
 
 private fun problemFor(e: Exception): WallProblem = when (e) {
     is WledConfigException -> WallProblem.NotAWledMatrix
+    is WledIdentityException -> WallProblem.Unidentifiable
     else -> WallProblem.Unreachable
 }

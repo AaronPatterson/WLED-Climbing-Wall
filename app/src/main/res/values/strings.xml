@@ -21,6 +21,7 @@
     <string name="wall_error_title">Couldn\'t reach the wall</string>
     <string name="wall_error_unreachable">Couldn\'t reach the WLED controller. Check that it\'s on and on the same Wi-Fi.</string>
     <string name="wall_error_not_wled">The controller answered, but isn\'t set up as a 2D matrix in WLED.</string>
+    <string name="wall_error_unidentifiable">The controller answered but reported no MAC address, so the app cannot tell which wall it is. Saved routes need one.</string>
     <string name="wall_retry">Retry</string>
 
     <!-- Hold colours -->

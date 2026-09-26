@@ -15,12 +15,15 @@ package com.wledclimb.app.network
  * here: the first is a rare event that wants a deliberate "this is that wall"
  * action, and the second would show up as a fingerprint mismatch anyway.
  *
- * [mac] is empty when a controller does not report one. WLED itself falls back
- * to reading eFuse directly rather than publishing zeros, so this should not
- * happen - but callers treat an empty value as "no usable identity" rather
- * than as an identity that several walls could share.
+ * A controller that reports no MAC is refused rather than worked around. The
+ * field is unconditional in WLED - `root["mac"] = escapedMac` sits outside
+ * every #ifdef in serializeInfo, and the one case that could produce an empty
+ * value, an ESP32 whose WiFi netif is not up, is guarded by reading the base
+ * MAC from eFuse instead. So there is no known controller this rejects, and
+ * carrying a second way to identify a wall to serve a case nobody has seen
+ * costs a nullable column, a branch and the tests for both.
+ *
+ * If one ever turns up, the app says so on connect instead of quietly falling
+ * back to matching on an address that DHCP is free to move.
  */
-data class WledIdentity(val name: String, val mac: String) {
-
-    val hasStableId: Boolean get() = mac.isNotBlank()
-}
+data class WledIdentity(val name: String, val mac: String)

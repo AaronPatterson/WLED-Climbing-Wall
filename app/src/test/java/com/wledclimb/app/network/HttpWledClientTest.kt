@@ -8,7 +8,6 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -75,15 +74,18 @@ class HttpWledClientTest {
     }
 
     @Test
-    fun `a controller reporting no MAC yields an empty one rather than failing`() = runBlocking {
-        // WLED always sends one, but firmware old enough not to should still
-        // connect - it falls back to matching the wall on its address.
+    fun `a controller reporting no MAC is refused`() = runBlocking {
+        // Nothing stable to hang saved routes off, and matching on an address
+        // instead would hand one wall's routes to whatever DHCP put there next.
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"name":"Climbing Wall"}"""))
 
-        val identity = client().getIdentity()
-        assertEquals("Climbing Wall", identity.name)
-        assertEquals("", identity.mac)
-        assertFalse(identity.hasStableId)
+        try {
+            client().getIdentity()
+            fail("expected the missing MAC to be refused")
+        } catch (e: WledIdentityException) {
+            assertTrue(e.message!!.contains("MAC"))
+        }
+        Unit
     }
 
     @Test

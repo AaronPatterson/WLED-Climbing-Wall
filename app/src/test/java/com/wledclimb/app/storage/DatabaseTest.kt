@@ -50,9 +50,9 @@ abstract class DatabaseTest {
 
     protected fun wall(
         name: String = "Garage",
-        // Null by default: NULLs are distinct in a unique index, so tests
-        // building several walls do not have to invent a MAC for each.
-        mac: String? = null,
+        // Derived from the name, so tests building several walls get
+        // distinct MACs without having to invent one each time.
+        mac: String = "mac-" + name.lowercase(),
         address: String = "http://192.168.1.50",
         width: Int = 2,
         height: Int = 2,

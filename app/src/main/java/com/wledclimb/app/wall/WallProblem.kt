@@ -14,4 +14,10 @@ sealed interface WallProblem {
 
     /** It answered, but isn't a WLED controller with a 2D matrix set up. */
     data object NotAWledMatrix : WallProblem
+
+    /**
+     * It answered, but reported no MAC address, so there is nothing stable to
+     * hang saved routes off. Not known to happen - see [WledIdentity].
+     */
+    data object Unidentifiable : WallProblem
 }

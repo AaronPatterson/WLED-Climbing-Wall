@@ -31,13 +31,9 @@ import androidx.room.PrimaryKey
  * the controller, and renaming it. Verified against a real controller, which
  * reports `b0cbd8e23458` for this wall.
  *
- * It is null only if a controller reports no MAC, which WLED goes out of its
- * way to avoid - it falls back to reading eFuse directly rather than
- * publishing zeros. Null rather than an empty string, and that is not a style
- * choice: the column is uniquely indexed, and SQLite treats every NULL in a
- * unique index as distinct from every other while two empty strings collide.
- * Storing "" would therefore let the first unknown-MAC wall be saved and
- * refuse the second. Null means "no usable identity" and is never matched on.
+ * Never absent. A controller that reports no MAC is refused on connect rather
+ * than stored without one, so this column has no empty case to represent and
+ * the unique index has no NULLs to reason about.
  *
  * WLED also exposes a `deviceId`, and it is deliberately not used: it is a
  * SHA1 of the MAC salted with flash details, exists for WLED's own usage
@@ -75,7 +71,7 @@ import androidx.room.PrimaryKey
 data class StoredWall(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val controllerMac: String?,
+    val controllerMac: String,
     val controllerAddress: String,
     val width: Int,
     val height: Int,

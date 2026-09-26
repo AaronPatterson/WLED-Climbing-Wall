@@ -22,15 +22,6 @@ class WallDaoTest : DatabaseTest() {
     }
 
     @Test
-    fun `a wall is found by the controller it was reached at`() = runTest {
-        walls.insert(wall(name = "Garage", address = "http://192.168.1.50"))
-        walls.insert(wall(name = "Barn", address = "http://192.168.1.60"))
-
-        assertEquals("Barn", walls.byAddress("http://192.168.1.60")?.name)
-        assertNull(walls.byAddress("http://192.168.1.99"))
-    }
-
-    @Test
     fun `walls are listed by name`() = runTest {
         walls.insert(wall(name = "Shed", address = "a"))
         walls.insert(wall(name = "Barn", address = "b"))
@@ -86,13 +77,4 @@ class WallDaoTest : DatabaseTest() {
         }
     }
 
-    @Test
-    fun `walls with no MAC do not collide with each other`() = runTest {
-        // NULL is distinct from NULL in a unique index; "" would not be, which
-        // is why the column is nullable rather than defaulting to empty.
-        walls.insert(wall(name = "Garage", mac = null, address = "a"))
-        walls.insert(wall(name = "Barn", mac = null, address = "b"))
-
-        assertEquals(2, walls.all().first().size)
-    }
 }
