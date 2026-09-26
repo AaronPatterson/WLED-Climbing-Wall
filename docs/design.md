@@ -82,6 +82,7 @@ Each phase should end with something you can run on a device and see working, be
 | 14 | Brightness | A brightness control next to the on/off switch, so the wall can be dimmed for evening use without digging into WLED's own UI |
 | 15 | Configurable palettes | A choice of predefined hold-colour palettes, plus the ability to build your own, from configuration |
 | 16 | Working offline | Add, edit and delete routes with no controller in reach, with the wall controls showing that it is out of reach rather than failing |
+| 17 | Repairing a changed wall | Show a route's missing holds where they used to be, dimmed, so the route can be rebuilt around the wall as it is now |
 
 Phases 0–5 cover every P0 requirement and form a genuinely useful app on their own — that's the natural point to pause, use it on the real wall, and see what P1/P2 work actually turns out to matter.
 
@@ -183,6 +184,42 @@ Notes on the later phases:
   answer for" is the same question with a third answer - which is why it goes
   there and not into a banner. It needs to be distinguishable without colour,
   since that is the whole point of a control a six-year-old reads at a glance.
+
+
+- **Phase 17** is the other half of the promise in
+  [walls-and-routes.md](walls-and-routes.md): *opening one diffs its lit
+  positions against the current gap pattern so the holds that have gone can be
+  shown and the route repaired.* The warning in the list is built. The diffing
+  and showing is not - today a hold whose position no longer has a light is
+  simply left out when the route is loaded.
+
+  **Draw them, dimmed, where they used to be.** Not as a decoration: a route on
+  a wall that has been re-drilled is repairable if you can see what it used to
+  look like, and unrecoverable if you cannot. The dimmed hold says "there was
+  one here", so the same move can be put back on whichever hold is nearest now.
+  Tapping a dimmed hold removes it, which is how a route stops being stale -
+  either every ghost is repositioned or dismissed, and then it matches the wall
+  again.
+
+  **The reason to build it is not convenience, it is that saving currently
+  loses them.** Loading filters out the holds the wall no longer has, and
+  saving writes back what was loaded, so the first save after a gap-file change
+  discards them for good. "Kept, not discarded" is true of the stored route
+  only until someone opens it and presses save - which is exactly what someone
+  does when repairing a route by hand. That is a quiet data loss with no
+  warning attached to it.
+
+  **What has to change.** Loading has to return both sets rather than one, the
+  UI state has to carry the orphans alongside the lit holds, and the grid has
+  to draw at positions that have no light - today it draws from the wall's
+  cells, and a ghost is by definition somewhere those say nothing is. Saving
+  has to write orphans back, or the loss above survives the feature that was
+  meant to fix it.
+
+  **Storage needs nothing.** Routes already record `x,y` positions and a
+  palette slot; a position the wall has no light at is perfectly representable
+  and is already what gets stored. This is a presentation and editing change on
+  top of data that is already correct.
 
 ## WLED behaviour worth knowing
 
