@@ -70,8 +70,11 @@ fun WallTopBar(
     onToggle: () -> Unit,
     onBrightnessChange: (Int) -> Unit,
     onChangeController: () -> Unit,
-    onOpenRoutes: () -> Unit
+    onOpenRoutes: () -> Unit,
+    routeName: String?,
+    modified: Boolean
 ) {
+    val unsavedDescription = stringResource(R.string.routes_unsaved_changes)
     var menuOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
 
@@ -81,7 +84,44 @@ fun WallTopBar(
 
     TopAppBar(
         modifier = modifier,
-        title = { Text(text = name, style = MaterialTheme.typography.titleMedium) },
+        title = {
+                // Two lines: the wall is which wall, the route is what you are
+                // working on. The route is the larger of the two because it is
+                // the thing that changes, and the one you look up to check.
+                Column {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = routeName ?: stringResource(R.string.routes_unsaved),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (routeName == null) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                        if (modified) {
+                            // A dot rather than a word: it sits beside a name
+                            // that can already be long, and "there is unsaved
+                            // work" is a fact that does not need a sentence.
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 6.dp)
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .semantics {
+                                        contentDescription = unsavedDescription
+                                    }
+                            )
+                        }
+                    }
+                }
+            },
             navigationIcon = {
                 // Everything that is about the app rather than about the wall.
                 // Small now, but it is where configuration grows, and keeping it

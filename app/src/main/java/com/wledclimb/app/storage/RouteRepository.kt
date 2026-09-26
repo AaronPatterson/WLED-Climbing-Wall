@@ -40,9 +40,7 @@ class RouteRepository(
         wall: Wall,
         routeId: Long? = null
     ): Long {
-        val stored = RouteHolds.serialize(
-            holds.mapKeys { (segmentIndex, _) -> wall.positionOf(segmentIndex) }
-        )
+        val stored = RouteHolds.serializeSegments(holds, wall)
         val timestamp = now()
 
         val existing = routeId?.let { routes.byId(it) }
@@ -82,9 +80,7 @@ class RouteRepository(
      */
     suspend fun load(id: Long, wall: Wall): Map<Int, HoldColor>? {
         val route = routes.byId(id) ?: return null
-        return RouteHolds.parse(route.holds)
-            .filterKeys { wall.hasHoldAt(it.x, it.y) }
-            .mapKeys { (position, _) -> wall.segmentIndexAt(position.x, position.y) }
+        return RouteHolds.parseSegments(route.holds, wall)
     }
 
     suspend fun rename(id: Long, name: String) {

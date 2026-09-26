@@ -52,7 +52,10 @@ fun RoutesPanel(
     selectedRouteId: Long?,
     currentFingerprint: String,
     canSave: Boolean,
+    modified: Boolean,
     onLoad: (Long) -> Unit,
+    onNew: () -> Unit,
+    onRevert: () -> Unit,
     onSave: () -> Unit,
     onRename: (StoredRoute) -> Unit,
     onDelete: (StoredRoute) -> Unit,
@@ -70,8 +73,33 @@ fun RoutesPanel(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onNew) {
+                Text(stringResource(R.string.routes_new))
+            }
             TextButton(onClick = onSave, enabled = canSave) {
                 Text(stringResource(R.string.routes_save))
+            }
+        }
+
+        // Only while there is something to reset. It explains the dot in the
+        // top bar as well as offering the way out, which is why it says what
+        // the state is rather than being a bare button.
+        if (modified) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 12.dp, bottom = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.routes_unsaved_changes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onRevert) {
+                    Text(stringResource(R.string.routes_reset))
+                }
             }
         }
 

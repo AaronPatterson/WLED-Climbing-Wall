@@ -8,6 +8,17 @@ import androidx.room.RoomDatabase
 /**
  * Saved walls and the routes drawn on them.
  *
+ * Version 1 is still the first schema, because none has ever been released -
+ * 0.9.0 shipped without anything that opens this database. Columns added
+ * before that point are folded into version 1 rather than migrated to, which
+ * keeps the first published schema whole instead of arriving with a migration
+ * from a version nobody ever had.
+ *
+ * That stops being true with the first release that writes here. From then on
+ * a changed entity needs a version bump and a Migration, or Room's identity
+ * hash disagrees with the file on disk, the open throws, and every saved route
+ * becomes unreachable.
+ *
  * Foreign keys are enabled explicitly. Room declares the constraint but SQLite
  * ignores foreign keys unless the pragma is set per connection, so without
  * this the cascade that removes a wall's routes would quietly not happen.

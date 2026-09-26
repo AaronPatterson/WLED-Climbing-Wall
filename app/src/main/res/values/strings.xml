@@ -35,6 +35,18 @@
 
     <!-- Routes -->
     <string name="routes_title">Routes</string>
+    <string name="routes_new">New</string>
+    <string name="routes_reset">Reset</string>
+    <string name="routes_reset_title">Reset %1$s?</string>
+    <string name="routes_reset_untitled_title">Clear this route?</string>
+    <string name="routes_reset_body">Your unsaved changes are lost and the saved route comes back.</string>
+    <string name="routes_reset_untitled_body">Nothing has been saved yet, so this clears the wall.</string>
+    <string name="routes_unsaved">Unsaved route</string>
+    <string name="routes_unsaved_changes">Unsaved changes</string>
+    <string name="routes_discard_title">Save changes to %1$s?</string>
+    <string name="routes_discard_untitled_title">Save this route?</string>
+    <string name="routes_discard_body">You have changes that have not been saved.</string>
+    <string name="routes_discard">Discard</string>
     <string name="routes_open">Saved routes</string>
     <string name="routes_save">Save</string>
     <string name="routes_more">More</string>

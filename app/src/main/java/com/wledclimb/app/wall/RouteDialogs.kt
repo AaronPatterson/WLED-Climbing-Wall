@@ -128,3 +128,84 @@ fun DeleteRouteDialog(
         }
     )
 }
+
+/**
+ * Asked before switching away from unsaved work.
+ *
+ * Three answers rather than two, because "no" is ambiguous here: not saving
+ * and not switching are different intentions, and a dialog that treats them as
+ * one will eventually throw away a route on someone's behalf. Cancel is the
+ * dismissal, so tapping outside keeps the work.
+ */
+@Composable
+fun UnsavedChangesDialog(
+    routeName: String?,
+    onCancel: () -> Unit,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = {
+            Text(
+                if (routeName == null) {
+                    stringResource(R.string.routes_discard_untitled_title)
+                } else {
+                    stringResource(R.string.routes_discard_title, routeName)
+                }
+            )
+        },
+        text = { Text(stringResource(R.string.routes_discard_body)) },
+        confirmButton = {
+            TextButton(onClick = onSave) { Text(stringResource(R.string.routes_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDiscard) { Text(stringResource(R.string.routes_discard)) }
+        }
+    )
+}
+
+/**
+ * Confirms throwing away unsaved edits.
+ *
+ * Asked because reset is not undoable - the draft is the only copy of that
+ * work, and a mis-tap in a sheet that also holds Save and New should not be
+ * able to destroy it. The wording says what comes back rather than what goes,
+ * since that is the part someone is checking.
+ */
+@Composable
+fun ResetRouteDialog(
+    routeName: String?,
+    onDismiss: () -> Unit,
+    onReset: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (routeName == null) {
+                    stringResource(R.string.routes_reset_untitled_title)
+                } else {
+                    stringResource(R.string.routes_reset_title, routeName)
+                }
+            )
+        },
+        text = {
+            Text(
+                stringResource(
+                    if (routeName == null) {
+                        R.string.routes_reset_untitled_body
+                    } else {
+                        R.string.routes_reset_body
+                    }
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onReset) { Text(stringResource(R.string.routes_reset)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.routes_cancel)) }
+        }
+    )
+}
