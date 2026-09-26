@@ -1,5 +1,6 @@
 package com.wledclimb.app.network
 
+import com.wledclimb.app.palette.HoldColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -85,14 +86,16 @@ class HttpWledClient(
             val body = response.body?.string() ?: throw IOException("Empty response from WLED")
             try {
                 val info = JSONObject(body)
-                // The name is required - without it there is nothing to label
-                // the wall with, and its absence means this is not WLED. The
-                // MAC is optional here so an old or unusual firmware degrades
-                // to address matching rather than failing to connect at all.
-                WledIdentity(
-                    name = info.getString("name"),
-                    mac = info.optString("mac", "")
-                )
+                // Both required. The name labels the wall; the MAC is what
+                // identifies it, and a wall that cannot be identified cannot
+                // own the routes drawn on it.
+                val mac = info.optString("mac", "")
+                if (mac.isBlank()) {
+                    throw WledIdentityException(
+                        "Controller at ${response.request.url.host} reports no MAC address"
+                    )
+                }
+                WledIdentity(name = info.getString("name"), mac = mac)
             } catch (e: JSONException) {
                 throw IOException("Unexpected response from ${response.request.url}: $body", e)
             }

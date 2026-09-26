@@ -25,17 +25,14 @@ class InMemoryWallDao : WallDao {
     override suspend fun byId(id: Long): StoredWall? = rows.value.firstOrNull { it.id == id }
 
     override suspend fun byMac(mac: String): StoredWall? =
-        rows.value.firstOrNull { it.controllerMac != null && it.controllerMac == mac }
-
-    override suspend fun byAddress(address: String): StoredWall? =
-        rows.value.firstOrNull { it.controllerAddress == address }
+        rows.value.firstOrNull { it.controllerMac == mac }
 
     override fun all(): Flow<List<StoredWall>> = rows.map { list -> list.sortedBy { it.name } }
 
     override suspend fun insert(wall: StoredWall): Long {
         // Mirrors the unique index. Without this the fake would accept writes
         // real SQLite rejects, and the tests would prove nothing about them.
-        if (wall.controllerMac != null && rows.value.any { it.controllerMac == wall.controllerMac }) {
+        if (rows.value.any { it.controllerMac == wall.controllerMac }) {
             throw IllegalStateException("UNIQUE constraint failed: walls.controllerMac")
         }
         insertCount++

@@ -1,7 +1,6 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.Wall
-import com.wledclimb.app.network.WledIdentity
 
 /**
  * The stored wall behind a controller, created the first time one is reached.
@@ -19,17 +18,20 @@ import com.wledclimb.app.network.WledIdentity
  * stored, and updated whenever the controller turns up somewhere new, so a
  * wall can be reached without rediscovery.
  *
- * Address matching remains as a fallback for a controller reporting no MAC,
- * and as the upgrade path for a wall stored before the MAC was read: found by
- * address, its MAC is backfilled, and it is identified properly from then on.
- * A row whose stored MAC disagrees with the one in hand is never reused,
- * because that is a different controller that happens to have been given the
- * same address.
+ * There is no second way to find a wall. A controller that reports no MAC is
+ * refused on connect, so the MAC is always there to look up by - and matching
+ * on an address instead would hand one wall's routes to whichever controller
+ * DHCP put at that address next.
  *
  * The database enforces one row per MAC. Two rows for one controller would
  * split a wall's routes across both, and whichever the app found first would
  * look like it had lost half of them - so that is a constraint rather than
  * something this class is merely careful about.
+ *
+ * Takes the controller's MAC and name as plain values rather than the type the
+ * network layer parses them into. Storage has no business knowing the wire
+ * format exists, and the two facts it actually needs are a string and a
+ * nullable string.
  *
  * Shape and name are refreshed from the controller on every connect, because
  * the controller is the authority on both. [StoredWall.lastSelectedRouteId] is
@@ -42,16 +44,17 @@ class WallRepository(private val walls: WallDao) {
         walls.setLastSelectedRoute(wallId, routeId)
 
     suspend fun findOrCreate(
-        identity: WledIdentity,
+        controllerMac: String,
+        name: String,
         controllerAddress: String,
         wall: Wall
     ): StoredWall {
-        val existing = existingFor(identity, controllerAddress)
+        val existing = walls.byMac(controllerMac)
 
         if (existing == null) {
             val fresh = StoredWall(
-                name = identity.name,
-                controllerMac = identity.mac.takeIf { it.isNotBlank() },
+                name = name,
+                controllerMac = controllerMac,
                 controllerAddress = controllerAddress,
                 width = wall.width,
                 height = wall.height,
@@ -61,10 +64,9 @@ class WallRepository(private val walls: WallDao) {
         }
 
         val refreshed = existing.copy(
-            name = identity.name,
-            // Backfills a wall stored before its MAC was known, and moves the
-            // address when the controller turns up somewhere new.
-            controllerMac = identity.mac.takeIf { it.isNotBlank() } ?: existing.controllerMac,
+            name = name,
+            // Moves the address when the controller turns up somewhere new.
+            // The MAC cannot have changed - it is what found this row.
             controllerAddress = controllerAddress,
             width = wall.width,
             height = wall.height,
@@ -75,22 +77,5 @@ class WallRepository(private val walls: WallDao) {
         // re-emit the whole list every time the app reconnects.
         if (refreshed != existing) walls.update(refreshed)
         return refreshed
-    }
-
-    private suspend fun existingFor(
-        identity: WledIdentity,
-        controllerAddress: String
-    ): StoredWall? {
-        if (identity.hasStableId) {
-            walls.byMac(identity.mac)?.let { return it }
-        }
-
-        // Nothing known by that MAC. The address may still lead to this wall -
-        // stored before the MAC was read, or by a controller that reports none
-        // - but only if it does not already belong to a different controller.
-        val byAddress = walls.byAddress(controllerAddress) ?: return null
-        val claimedByAnother =
-            byAddress.controllerMac != null && byAddress.controllerMac != identity.mac
-        return if (claimedByAnother) null else byAddress
     }
 }

@@ -1,7 +1,7 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.GridPosition
-import com.wledclimb.app.wall.HoldColor
+import com.wledclimb.app.palette.HoldColor
 
 /**
  * Serialises a route's lit holds to and from the text stored on [StoredRoute].

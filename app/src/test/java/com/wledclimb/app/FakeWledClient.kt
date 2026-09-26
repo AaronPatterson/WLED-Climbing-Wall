@@ -1,5 +1,6 @@
 package com.wledclimb.app
 
+import com.wledclimb.app.palette.HoldColor
 import com.wledclimb.app.network.MAX_BRIGHTNESS
 import com.wledclimb.app.network.MIN_USABLE_BRIGHTNESS
 import com.wledclimb.app.network.WledClient

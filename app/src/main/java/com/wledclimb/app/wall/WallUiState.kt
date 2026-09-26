@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import com.wledclimb.app.grid.Wall
 
 /** UI-facing state of the wall connection. */

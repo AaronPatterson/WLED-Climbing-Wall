@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import com.wledclimb.app.network.WledStatus
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.FakeWledClient

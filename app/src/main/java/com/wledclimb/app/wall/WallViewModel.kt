@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +10,7 @@ import com.wledclimb.app.grid.buildWall
 import com.wledclimb.app.grid.parseGaps
 import com.wledclimb.app.grid.parsePanels
 import com.wledclimb.app.network.WledIdentity
+import com.wledclimb.app.network.WledIdentityException
 import com.wledclimb.app.network.WledClient
 import com.wledclimb.app.storage.WallRepository
 import kotlinx.coroutines.CancellationException
@@ -133,7 +135,12 @@ class WallViewModel(
      */
     private suspend fun storedWallId(identity: WledIdentity, wall: Wall): Long? =
         try {
-            walls.findOrCreate(identity, controllerAddress, wall).id
+            walls.findOrCreate(
+                controllerMac = identity.mac,
+                name = identity.name,
+                controllerAddress = controllerAddress,
+                wall = wall
+            ).id
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -272,5 +279,6 @@ private fun Map<Int, HoldColor>.toHex(): Map<Int, String> = mapValues { it.value
 
 private fun problemFor(e: Exception): WallProblem = when (e) {
     is WledConfigException -> WallProblem.NotAWledMatrix
+    is WledIdentityException -> WallProblem.Unidentifiable
     else -> WallProblem.Unreachable
 }

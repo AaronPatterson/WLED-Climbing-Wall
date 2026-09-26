@@ -1,4 +1,4 @@
-package com.wledclimb.app.wall
+package com.wledclimb.app.palette
 
 /**
  * The colours a hold can be lit in.
@@ -6,6 +6,14 @@ package com.wledclimb.app.wall
  * A small fixed set rather than a colour wheel, per docs/design.md: the target
  * user is six, and picking from a handful of obvious colours is far easier
  * than steering a gradient. [hex] is the `RRGGBB` WLED expects.
+ *
+ * In its own package rather than beside the screens that draw it. Nothing here
+ * is a UI concern - these are the colours the wall can show and the slots a
+ * saved route refers to - and storage had to import it out of the UI package
+ * to serialise a route, which is a dependency pointing the wrong way. Phase 15
+ * turns this into a stored palette that can be edited while the app is
+ * running, at which point owning a package of its own stops being tidiness and
+ * starts being where the palette lives.
  *
  * The values are WLED's own quick-select swatches, from `wled00/data/index.htm`,
  * rather than colours chosen to look right on a screen. The two are not the

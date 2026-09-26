@@ -1,5 +1,6 @@
 package com.wledclimb.app.wall
 
+import com.wledclimb.app.palette.HoldColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -216,6 +217,7 @@ private fun ColumnScope.ErrorContent(problem: WallProblem, onRetry: () -> Unit) 
             when (problem) {
                 WallProblem.Unreachable -> R.string.wall_error_unreachable
                 WallProblem.NotAWledMatrix -> R.string.wall_error_not_wled
+                WallProblem.Unidentifiable -> R.string.wall_error_unidentifiable
             }
         ),
         modifier = Modifier.padding(top = 8.dp)

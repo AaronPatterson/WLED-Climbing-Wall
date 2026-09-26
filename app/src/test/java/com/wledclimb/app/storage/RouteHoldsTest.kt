@@ -1,7 +1,7 @@
 package com.wledclimb.app.storage
 
 import com.wledclimb.app.grid.GridPosition
-import com.wledclimb.app.wall.HoldColor
+import com.wledclimb.app.palette.HoldColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
